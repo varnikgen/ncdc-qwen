@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from app.database import engine, Base
 from app.config import settings
-from app.routers import provisioning # <-- ДОБАВИТЬ ЭТО
+from app.routers import provisioning, actions  # <-- ДОБАВИТЬ actions
 
 Base.metadata.create_all(bind=engine)
 
@@ -11,7 +11,8 @@ app = FastAPI(
     description="Yealink Auto-Provisioning Service"
 )
 
-app.include_router(provisioning.router) # <-- ДОБАВИТЬ ЭТО
+app.include_router(provisioning.router)
+app.include_router(actions.router)  # <-- ДОБАВИТЬ ЭТО
 
 @app.get("/")
 async def root():
