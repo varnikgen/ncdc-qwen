@@ -1,0 +1,32 @@
+#!version:1.0.0.1
+##File header "#!version:1.0.0.1" can not be edited or deleted.##
+
+#######################################################################################
+##                           Firmware Update                                         ##
+#######################################################################################
+{% if model_firmware_url %}
+firmware.url = {{ model_firmware_url }}
+{% endif %}
+
+#######################################################################################
+##                           802.1x Authentication                                   ##
+#######################################################################################
+{% if model_802_1x_enable %}
+static.network.802_1x.identity = {{ model_802_1x_identity }}
+static.network.802_1x.mode = {{ model_802_1x_mode }}
+static.network.802_1x.md5_password = ""
+features.network.8021x_upload.mode = 0
+{% if model_802_1x_root_cert_url %}
+static.network.802_1x.root_cert_url = {{ model_802_1x_root_cert_url }}
+{% endif %}
+{% if model_802_1x_client_cert_url %}
+static.network.802_1x.client_cert_url = {{ model_802_1x_client_cert_url }}
+{% endif %}
+{% endif %}
+
+#######################################################################################
+##                        Model-Specific Settings                                    ##
+#######################################################################################
+{% for key, value in config.get('model_specific_settings', {}).items() %}
+{{ key }} = {{ value }}
+{% endfor %}

@@ -1,0 +1,57 @@
+#!version:1.0.0.1
+##File header "#!version:1.0.0.1" can not be edited or deleted.##
+
+#######################################################################################
+##                                    Network                                        ##
+#######################################################################################
+static.network.ip_address_mode = {{ config.get('yealink_ip_address_mode', 1) }}
+{% if config.get('dns_server_primary') %}
+static.network.static_dns_enable = 1
+static.network.primary_dns = {{ config.dns_server_primary }}
+static.network.secondary_dns = {{ config.get('dns_server_secondary', '') }}
+{% endif %}
+
+#######################################################################################
+##                                   LDAP                                            ##
+#######################################################################################
+{% if config.get('ldap_enable') %}
+ldap.enable = 1
+ldap.host = {{ config.ldap_host }}
+ldap.base = {{ config.ldap_base }}
+ldap.user = {{ config.ldap_user }}
+ldap.password = {{ config.ldap_password }}
+ldap.name_filter = {{ config.get('ldap_name_filter', '') }}
+ldap.number_filter = {{ config.get('ldap_number_filter', '') }}
+ldap.display_name = {{ config.get('ldap_display_name', '%cn %sn') }}
+{% else %}
+ldap.enable = 0
+{% endif %}
+
+#######################################################################################
+##                                   Time&Date                                       ##
+#######################################################################################
+local_time.time_zone = {{ config.get('local_time.time_zone', '+10') }}
+local_time.dhcp_time = {{ config.get('local_time.dhcp_time', 1) }}
+local_time.summer_time = {{ config.get('local_time.summer_time', 0) }}
+local_time.date_format = {{ config.get('local_time.date_format', 5) }}
+
+#######################################################################################
+##                                   Autop URL                                       ##
+#######################################################################################
+static.auto_provision.server.url = {{ config.get('static.auto_provision.server.url', 'https://ncdc.bsmuk.ru/yealink/') }}
+static.auto_provision.power_on = {{ config.get('static.auto_provision.power_on', 1) }}
+static.auto_provision.repeat.minutes = {{ config.get('static.auto_provision.repeat.minutes', 1) }}
+
+#######################################################################################
+##                          Action URL&URI                                           ##
+#######################################################################################
+{% if config.get('features.action_uri_limit_ip') %}
+features.action_uri_limit_ip = {{ config.features.action_uri_limit_ip }}
+{% endif %}
+
+#######################################################################################
+##                        Дополнительные параметры (Key-Value)                       ##
+#######################################################################################
+{% for key, value in config.get('extra_global_settings', {}).items() %}
+{{ key }} = {{ value }}
+{% endfor %}

@@ -1,0 +1,58 @@
+#!version:1.0.0.1
+##File header "#!version:1.0.0.1" can not be edited or deleted.##
+
+#######################################################################################
+##                        ACCOUNTS CONFIGURATION                                     ##
+#######################################################################################
+{% for acc in config.accounts %}
+# --- Account {{ acc.line }} Settings ---
+account.{{ acc.line }}.enable = 1
+account.{{ acc.line }}.label = {{ acc.label }}
+account.{{ acc.line }}.display_name = {{ acc.display_name }}
+account.{{ acc.line }}.auth_name = {{ acc.auth_id }}
+account.{{ acc.line }}.user_name = {{ acc.user_id }}
+account.{{ acc.line }}.password = {{ acc.password }}
+account.{{ acc.line }}.sip_server.1.address = {{ acc.server_address }}
+account.{{ acc.line }}.sip_server_port = {{ acc.sip_port }}
+
+{% if acc.transport == 'udp' %}
+account.{{ acc.line }}.sip_server.1.transport_type = 0
+{% elif acc.transport == 'tcp' %}
+account.{{ acc.line }}.sip_server.1.transport_type = 1
+{% elif acc.transport == 'tls' %}
+account.{{ acc.line }}.sip_server.1.transport_type = 2
+{% endif %}
+
+account.{{ acc.line }}.sip_server.1.expires = {{ acc.register_expires }}
+account.{{ acc.line }}.dtmf.type = {{ config.get('yealink_dtmf_type', 0) }}
+
+# Codecs for Account {{ acc.line }}
+account.{{ acc.line }}.codec.1.enable = 1
+account.{{ acc.line }}.codec.1.payload_type = PCMU
+account.{{ acc.line }}.codec.1.priority = 1
+account.{{ acc.line }}.codec.2.enable = 1
+account.{{ acc.line }}.codec.2.payload_type = PCMA
+account.{{ acc.line }}.codec.2.priority = 2
+account.{{ acc.line }}.codec.3.enable = 1
+account.{{ acc.line }}.codec.3.payload_type = G729
+account.{{ acc.line }}.codec.3.priority = 3
+
+{% endfor %}
+
+#######################################################################################
+##                        DSS Keys (Line Keys)                                       ##
+#######################################################################################
+{% for key in config.dss_keys %}
+linekey.{{ key.line }}.type = {{ key.type }}
+linekey.{{ key.line }}.value = {{ key.value }}
+linekey.{{ key.line }}.extension = {{ key.extension }}
+linekey.{{ key.line }}.label = {{ key.label }}
+linekey.{{ key.line }}.line = {{ key.line }}
+{% endfor %}
+
+#######################################################################################
+##                        Custom Phone Overrides                                     ##
+#######################################################################################
+{% for key, value in config.get('custom_phone_settings', {}).items() %}
+{{ key }} = {{ value }}
+{% endfor %}
