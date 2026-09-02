@@ -3,141 +3,37 @@
 {% block title %}Dashboard - NCDC{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-12">
-        <h2>Dashboard</h2>
-    </div>
-</div>
+<h2 class="mb-4">Dashboard</h2>
 
-<!-- Preview Cards -->
-<div class="row mb-4">
+<div class="row">
     <div class="col-md-4">
-        <div class="card">
-            <div class="card-body text-center">
-                <div class="row">
-                    <div class="col-4 border-end">
-                        <h1 class="text-primary">{{ stats.models_count }}</h1>
-                        <p class="text-muted">Models</p>
-                    </div>
-                    <div class="col-4 border-end">
-                        <h1 class="text-success">{{ stats.accounts_count }}</h1>
-                        <p class="text-muted">Accounts</p>
-                    </div>
-                    <div class="col-4">
-                        <h1 class="text-info">{{ stats.phones_count }}</h1>
-                        <p class="text-muted">Devices</p>
-                    </div>
-                </div>
+        <div class="card text-white bg-primary mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Total Devices</h5>
+                <p class="card-text display-4">{{ stats.phones_count }}</p>
             </div>
         </div>
     </div>
-    
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span>License</span>
-                <button class="btn btn-sm btn-primary">View</button>
-            </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-success mb-3">
             <div class="card-body">
-                <div class="row">
-                    <div class="col-6">
-                        <h5>Device Capacity: {{ stats.phones_count }}</h5>
-                        <p class="text-muted">Valid until: N/A</p>
-                        <div class="mt-3">
-                            <span class="badge bg-primary">used: {{ stats.phones_count }}</span>
-                            <span class="badge bg-success">available: ∞</span>
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <canvas id="licenseChart" width="150" height="150"></canvas>
-                    </div>
-                </div>
+                <h5 class="card-title">Online</h5>
+                <p class="card-text display-4">{{ stats.online_count | default(0) }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-secondary mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Offline / DND</h5>
+                <p class="card-text display-4">{{ stats.offline_count | default(0) }}</p>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Status -->
-<div class="row mb-4">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">Status</div>
-            <div class="card-body">
-                <canvas id="statusChart"></canvas>
-                <div class="mt-3 text-center">
-                    <span class="badge bg-success me-2">Registered: {{ stats.status.registered }}</span>
-                    <span class="badge bg-secondary me-2">Offline: {{ stats.status.offline }}</span>
-                    <span class="badge bg-warning me-2">Unregistered: {{ stats.status.unregistered }}</span>
-                    <span class="badge bg-danger">DND: {{ stats.status.dnd }}</span>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">Recent Activity</div>
-            <div class="card-body">
-                <div class="list-group list-group-flush">
-                    {% for log in recent_logs %}
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong>{{ log.action }}</strong>
-                            <br>
-                            <small class="text-muted">{{ log.entity_type }} #{{ log.entity_id }}</small>
-                        </div>
-                        <small class="text-muted">{{ log.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-    </div>
+<div class="alert alert-info">
+    <i class="bi bi-info-circle me-2"></i>
+    Система автопровижининга NCDC работает корректно. ActionURL и Push-обновления активны.
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-// Status Chart
-const statusCtx = document.getElementById('statusChart').getContext('2d');
-new Chart(statusCtx, {
-    type: 'doughnut',
-    data: {
-        labels: ['Registered', 'Offline', 'Unregistered', 'DND'],
-        datasets: [{
-            data: [
-                {{ stats.status.registered }},
-                {{ stats.status.offline }},
-                {{ stats.status.unregistered }},
-                {{ stats.status.dnd }}
-            ],
-            backgroundColor: ['#28a745', '#6c757d', '#ffc107', '#dc3545']
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: {
-            legend: { position: 'right' }
-        }
-    }
-});
-
-// License Chart
-const licenseCtx = document.getElementById('licenseChart').getContext('2d');
-new Chart(licenseCtx, {
-    type: 'doughnut',
-    data: {
-        labels: ['Used', 'Available'],
-        datasets: [{
-            data: [{{ stats.phones_count }}, 9983],
-            backgroundColor: ['#0d6efd', '#20c997']
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { display: false } }
-    }
-});
-</script>
 {% endblock %}

@@ -4,23 +4,23 @@
 #######################################################################################
 ##                           Firmware Update                                         ##
 #######################################################################################
-{% if model_firmware_url %}
-firmware.url = {{ model_firmware_url }}
+{% if config.get('model_firmware_url') %}
+firmware.url = {{ config.model_firmware_url }}
 {% endif %}
 
 #######################################################################################
 ##                           802.1x Authentication                                   ##
 #######################################################################################
-{% if model_802_1x_enable %}
-static.network.802_1x.identity = {{ model_802_1x_identity }}
-static.network.802_1x.mode = {{ model_802_1x_mode }}
+{% if config.get('model_802_1x_enable') %}
+static.network.802_1x.identity = {{ config.model_802_1x_identity }}
+static.network.802_1x.mode = {{ config.model_802_1x_mode }}
 static.network.802_1x.md5_password = ""
-features.network.8021x_upload.mode = 0
-{% if model_802_1x_root_cert_url %}
-static.network.802_1x.root_cert_url = {{ model_802_1x_root_cert_url }}
+features.network.8021x_upload.mode = {{ config.get('model_802_1x_upload_mode', 0) }}
+{% if config.get('model_802_1x_root_cert_url') %}
+static.network.802_1x.root_cert_url = {{ config.model_802_1x_root_cert_url }}
 {% endif %}
-{% if model_802_1x_client_cert_url %}
-static.network.802_1x.client_cert_url = {{ model_802_1x_client_cert_url }}
+{% if config.get('model_802_1x_client_cert_url') %}
+static.network.802_1x.client_cert_url = {{ config.model_802_1x_client_cert_url }}
 {% endif %}
 {% endif %}
 

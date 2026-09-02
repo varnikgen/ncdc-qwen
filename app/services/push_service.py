@@ -18,11 +18,11 @@ async def trigger_phone_autop(ip_address: str) -> bool:
         async with httpx.AsyncClient(timeout=3.0) as client:
             response = await client.get(url)
             if response.status_code == 200:
-                logger.info(f"AutoP успешно отправлен на {ip_address}")
+                logger.info(f"✅ AutoP успешно отправлен на {ip_address}")
                 return True
             else:
-                logger.warning(f"AutoP вернул статус {response.status_code} для {ip_address}")
+                logger.warning(f"⚠️ AutoP вернул статус {response.status_code} для {ip_address}")
                 return False
     except httpx.RequestError as exc:
-        logger.error(f"Ошибка сети при отправке AutoP на {ip_address}: {exc}")
+        logger.error(f"❌ Ошибка сети при отправке AutoP на {ip_address}: {exc}")
         return False
