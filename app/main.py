@@ -1,13 +1,11 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
-import jinja2
-from pathlib import Path
-
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from app.database import engine, Base
 from app.config import settings
 from app.routers import provisioning, actions, phones
 
-# Создаём таблицы при старте (если их нет)
+# Создаем таблицы в БД при старте
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -16,16 +14,9 @@ app = FastAPI(
     description="Yealink Auto-Provisioning Service"
 )
 
-# ==============================================================================
-# Явная инициализация Jinja2 для обхода багов совместимости Starlette + Python 3.14
-# ==============================================================================
-BASE_DIR = Path(__file__).resolve().parent
-loader = jinja2.FileSystemLoader(str(BASE_DIR / "templates"))
-jinja_env = jinja2.Environment(
-    loader=loader,
-    autoescape=True,
-    auto_reload=True
-)
+# Инициализируем шаблонизатор Jinja2 и сохраняем его в state приложения
+templates = Jinja2Templates(directory="app/templates")
+app.state.templates = templates
 
 # Подключаем роутеры
 app.include_router(provisioning.router)
@@ -34,16 +25,25 @@ app.include_router(phones.router)
 
 @app.get("/")
 async def dashboard(request: Request):
-    """Главная страница (Dashboard)"""
-    stats = {
-        "phones_count": 0,
-        "online_count": 0,
-        "offline_count": 0
-    }
-    # Прямой рендеринг шаблона без обёртки Starlette
-    template = jinja_env.get_template("dashboard.html")
-    html_content = template.render(request=request, stats=stats)
-    return HTMLResponse(content=html_content)
+    # Заглушка для Dashboard, пока используем простую статистику
+    from app.models import Phone
+    from app.database import get_db
+    
+    # Простой способ получить сессию для дашборда
+    from sqlalchemy.orm import Session
+    db = next(get_db())
+    total = db.query(Phone).count()
+    online = db.query(Phone).filter(Phone.status == "online").count()
+    offline = db.query(Phone).filter(Phone.status.in_(["offline", "unregistered"])).count()
+    
+    return templates.TemplateResponse("dashboard.html", {
+        "request": request, 
+        "stats": {
+            "phones_count": total,
+            "online_count": online,
+            "offline_count": offline
+        }
+    })
 
 @app.get("/health")
 async def health_check():
