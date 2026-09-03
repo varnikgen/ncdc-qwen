@@ -3,7 +3,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from app.database import engine, Base
 from app.config import settings
-from app.routers import provisioning, actions, phones
+from app.routers import provisioning, actions, phones, accounts
 
 # Создаем таблицы в БД при старте
 Base.metadata.create_all(bind=engine)
@@ -22,6 +22,7 @@ app.state.templates = templates
 app.include_router(provisioning.router)
 app.include_router(actions.router)
 app.include_router(phones.router)
+app.include_router(accounts.router)
 
 @app.get("/")
 async def dashboard(request: Request):

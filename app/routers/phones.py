@@ -88,7 +88,8 @@ async def update_phone(
     # Custom config (Key-Value)
     custom_config = {}
     for key, value in form.items():
-        if key.startswith("custom_") and value:
+        # Пропускаем служебные поля и custom_dss_keys
+        if key.startswith("custom_") and key not in ["custom_dss_keys", "custom_config"] and value:
             custom_config[key.replace("custom_", "")] = value
     phone.custom_config = custom_config
     
@@ -102,3 +103,22 @@ async def update_phone(
         await trigger_phone_autop(phone.ip_address)
     
     return {"status": "success", "message": f"Телефон {phone.mac} успешно обновлен"}
+
+@router.get("/{phone_id}/dss-keys")
+async def get_dss_keys(request: Request, phone_id: int, db: Session = Depends(get_db)):
+    """Возвращает HTML-таблицу DSS-клавиш для включения override"""
+    phone = db.query(Phone).filter(Phone.id == phone_id).first()
+    if not phone:
+        raise HTTPException(status_code=404, detail="Phone not found")
+    
+    # Определяем, какие DSS показывать
+    if phone.primary_account_id:
+        primary_acc = db.query(Account).filter(Account.id == phone.primary_account_id).first()
+        current_dss = primary_acc.dss_keys if primary_acc else []
+    else:
+        current_dss = []
+    
+    return request.app.state.templates.TemplateResponse("phones/_dss_keys_table.html", {
+        "request": request,
+        "current_dss": current_dss
+    })

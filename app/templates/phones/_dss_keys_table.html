@@ -1,0 +1,84 @@
+<div class="table-responsive">
+    <table class="table table-sm table-bordered" id="dssKeysTable">
+        <thead class="table-light">
+            <tr>
+                <th>Line</th>
+                <th>Type</th>
+                <th>Value</th>
+                <th>Extension</th>
+                <th>Label</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for key in current_dss %}
+            <tr>
+                <td><input type="number" name="dss_line_{{ loop.index0 }}" class="form-control form-control-sm" value="{{ key.line }}" min="1" max="27"></td>
+                <td>
+                    <select name="dss_type_{{ loop.index0 }}" class="form-select form-select-sm">
+                        <option value="0" {% if key.type == 0 %}selected{% endif %}>N/A</option>
+                        <option value="13" {% if key.type == 13 %}selected{% endif %}>Speed Dial</option>
+                        <option value="15" {% if key.type == 15 %}selected{% endif %}>Account</option>
+                        <option value="16" {% if key.type == 16 %}selected{% endif %}>BLF</option>
+                        <option value="17" {% if key.type == 17 %}selected{% endif %}>DTMF</option>
+                        <option value="22" {% if key.type == 22 %}selected{% endif %}>URL</option>
+                    </select>
+                </td>
+                <td><input type="text" name="dss_value_{{ loop.index0 }}" class="form-control form-control-sm" value="{{ key.value }}"></td>
+                <td><input type="text" name="dss_extension_{{ loop.index0 }}" class="form-control form-control-sm" value="{{ key.extension }}"></td>
+                <td><input type="text" name="dss_label_{{ loop.index0 }}" class="form-control form-control-sm" value="{{ key.label }}"></td>
+                <td><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <button type="button" class="btn btn-outline-primary btn-sm" onclick="addDssKey()">
+        <i class="bi bi-plus"></i> Add DSS Key
+    </button>
+</div>
+
+<input type="hidden" name="custom_dss_keys" id="dssKeysJson" value='{{ current_dss | tojson }}'>
+
+<script>
+function addDssKey() {
+    const table = document.getElementById('dssKeysTable').getElementsByTagName('tbody')[0];
+    const index = table.rows.length;
+    const row = table.insertRow();
+    
+    row.innerHTML = `
+        <td><input type="number" name="dss_line_${index}" class="form-control form-control-sm" value="${index + 1}" min="1" max="27"></td>
+        <td>
+            <select name="dss_type_${index}" class="form-select form-select-sm">
+                <option value="0">N/A</option>
+                <option value="13">Speed Dial</option>
+                <option value="15">Account</option>
+                <option value="16">BLF</option>
+                <option value="17">DTMF</option>
+                <option value="22">URL</option>
+            </select>
+        </td>
+        <td><input type="text" name="dss_value_${index}" class="form-control form-control-sm"></td>
+        <td><input type="text" name="dss_extension_${index}" class="form-control form-control-sm"></td>
+        <td><input type="text" name="dss_label_${index}" class="form-control form-control-sm"></td>
+        <td><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>
+    `;
+}
+
+// Сборка DSS keys в JSON перед отправкой формы
+document.querySelector('form').addEventListener('submit', function() {
+    const dssKeys = [];
+    const rows = document.querySelectorAll('#dssKeysTable tbody tr');
+    
+    rows.forEach((row, index) => {
+        dssKeys.push({
+            line: parseInt(row.querySelector(`[name="dss_line_${index}"]`).value),
+            type: parseInt(row.querySelector(`[name="dss_type_${index}"]`).value),
+            value: row.querySelector(`[name="dss_value_${index}"]`).value,
+            extension: row.querySelector(`[name="dss_extension_${index}"]`).value,
+            label: row.querySelector(`[name="dss_label_${index}"]`).value
+        });
+    });
+    
+    document.getElementById('dssKeysJson').value = JSON.stringify(dssKeys);
+});
+</script>
