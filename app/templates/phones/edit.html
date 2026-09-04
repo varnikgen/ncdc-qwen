@@ -246,95 +246,201 @@ function addCustomConfig() {
 }
 
 // Добавление DSS-клавиши
-function addDssKey() {
-    const table = document.getElementById('dssKeysTable').getElementsByTagName('tbody')[0];
-    const index = table.rows.length;
-    const row = table.insertRow();
+// ===== DSS Keys Functions =====
+const phoneAccountCount = parseInt(document.getElementById('phoneAccountCount')?.value) || 0;
+
+function generateAccountOptions(type, currentValue) {
+    let options = '';
     
-    row.innerHTML = `
-        <td><input type="number" name="dss_line_${index}" class="form-control form-control-sm" value="${index + 1}" min="1" max="27"></td>
-        <td>
-            <select name="dss_type_${index}" class="form-select form-select-sm">
-                <option value="0">N/A</option>
-                <option value="13">Speed Dial</option>
-                <option value="15">Account</option>
-                <option value="16">BLF</option>
-                <option value="17">DTMF</option>
-                <option value="22">URL</option>
-            </select>
-        </td>
-        <td><input type="text" name="dss_value_${index}" class="form-control form-control-sm"></td>
-        <td><input type="text" name="dss_extension_${index}" class="form-control form-control-sm"></td>
-        <td><input type="text" name="dss_label_${index}" class="form-control form-control-sm"></td>
-        <td><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>
-    `;
+    if (type === 0) {
+        return '<option value="0" selected>-</option>';
+    }
+    
+    if (type === 13) {
+        options += '<option value="0"' + (currentValue == 0 ? ' selected' : '') + '>Auto</option>';
+        for (let i = 1; i <= phoneAccountCount; i++) {
+            options += '<option value="' + i + '"' + (currentValue == i ? ' selected' : '') + '>Account ' + i + '</option>';
+        }
+        return options;
+    }
+    
+    if (type === 15 || type === 16) {
+        if (phoneAccountCount === 0) {
+            return '<option value="1" selected>Account 1</option>';
+        }
+        for (let i = 1; i <= phoneAccountCount; i++) {
+            options += '<option value="' + i + '"' + (currentValue == i ? ' selected' : '') + '>Account ' + i + '</option>';
+        }
+        return options;
+    }
+    
+    return '<option value="0">-</option>';
 }
+
+function updateAccountColumn(typeSelect) {
+    const row = typeSelect.closest('tr');
+    const accountSelect = row.querySelector('.dss-account');
+    const type = parseInt(typeSelect.value);
+    const currentValue = accountSelect.dataset.value || 1;
+    
+    accountSelect.innerHTML = generateAccountOptions(type, currentValue);
+    accountSelect.disabled = (type === 0);
+}
+
+function addDssKey() {
+    console.log('➕ addDssKey вызвана');
+    
+    const table = document.getElementById('dssKeysTable');
+    if (!table) {
+        console.error('❌ Таблица dssKeysTable не найдена!');
+        return;
+    }
+    
+    const tbody = table.getElementsByTagName('tbody')[0];
+    if (!tbody) {
+        console.error('❌ <tbody> не найден!');
+        return;
+    }
+    
+    const index = tbody.rows.length;
+    const newRowHtml = `
+        <tr data-index="${index}">
+            <td><input type="number" name="dss_line_${index}" class="form-control form-control-sm dss-line" value="${index + 1}" min="1" max="27"></td>
+            <td>
+                <select name="dss_type_${index}" class="form-select form-select-sm dss-type" onchange="updateAccountColumn(this)">
+                    <option value="0">N/A</option>
+                    <option value="15">Account</option>
+                    <option value="13">Speed Dial</option>
+                    <option value="16">BLF</option>
+                </select>
+            </td>
+            <td>
+                <select name="dss_account_${index}" class="form-select form-select-sm dss-account" data-value="1">
+                    <option value="1">Account 1</option>
+                </select>
+            </td>
+            <td><input type="text" name="dss_value_${index}" class="form-control form-control-sm dss-value"></td>
+            <td><input type="text" name="dss_extension_${index}" class="form-control form-control-sm dss-extension"></td>
+            <td><input type="text" name="dss_label_${index}" class="form-control form-control-sm dss-label"></td>
+            <td><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>
+        </tr>
+    `;
+    
+    tbody.insertAdjacentHTML('beforeend', newRowHtml);
+    
+    const newRow = tbody.lastElementChild;
+    const typeSelect = newRow.querySelector('.dss-type');
+    if (typeSelect) {
+        updateAccountColumn(typeSelect);
+    }
+    
+    console.log('✅ Строка добавлена');
+}
+
+// Инициализация при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    console.log(' Инициализация DSS keys...');
+    document.querySelectorAll('#dssKeysTable tbody tr').forEach((row, idx) => {
+        const typeSelect = row.querySelector('.dss-type');
+        if (typeSelect) {
+            updateAccountColumn(typeSelect);
+        }
+    });
+});
 
 // Обработчик отправки формы
 document.getElementById('phoneForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     
-    // Собираем Primary Account
-    const primaryAccountId = document.querySelector('select[name="primary_account_id"]').value;
-    
-    // Собираем Additional Accounts
-    const additionalAccounts = [];
-    const additionalSelects = document.querySelectorAll('select[name="additional_account_ids"]');
-    additionalSelects.forEach(select => {
-        if (select.value) {
-            additionalAccounts.push(select.value);
-        }
-    });
-    
-    // Формируем полный список аккаунтов (primary + additional)
-    const allAccountIds = [];
-    if (primaryAccountId) {
-        allAccountIds.push(primaryAccountId);
-    }
-    allAccountIds.push(...additionalAccounts);
-    
-    // Собираем DSS клавиши
-    const dssKeys = [];
-    const dssRows = document.querySelectorAll('#dssKeysTable tbody tr');
-    
-    dssRows.forEach((row, index) => {
-        dssKeys.push({
-            line: parseInt(row.querySelector(`[name="dss_line_${index}"]`)?.value || (index + 1)),
-            type: parseInt(row.querySelector(`[name="dss_type_${index}"]`)?.value || 0),
-            value: row.querySelector(`[name="dss_value_${index}"]`)?.value || '',
-            extension: row.querySelector(`[name="dss_extension_${index}"]`)?.value || '',
-            label: row.querySelector(`[name="dss_label_${index}"]`)?.value || ''
-        });
-    });
-    
-    // Собираем Custom Config
-    const customConfig = {};
-    const customRows = document.querySelectorAll('#customConfigContainer .row');
-    
-    customRows.forEach(row => {
-        const keyInput = row.querySelector('input[name^="custom_"]:not([name$="_value"])');
-        const valueInput = row.querySelector('input[name$="_value"]');
-        
-        if (keyInput && valueInput && keyInput.value && valueInput.value) {
-            customConfig[keyInput.value] = valueInput.value;
-        }
-    });
-    
-    // Создаём FormData
-    const formData = new FormData(this);
-    
-    // Добавляем account_ids как строку
-    formData.set('account_ids', allAccountIds.join(','));
-    formData.set('primary_account_id', primaryAccountId);
-    
-    // Добавляем DSS keys как JSON строку
-    formData.set('custom_dss_keys', JSON.stringify(dssKeys));
-    
-    // Добавляем custom config как JSON строку
-    formData.set('custom_config', JSON.stringify(customConfig));
-    
-    // Отправляем форму через fetch
     try {
+        // Собираем Primary Account
+        const primaryAccountId = document.querySelector('select[name="primary_account_id"]').value;
+        
+        // Собираем Additional Accounts
+        const additionalAccounts = [];
+        const additionalSelects = document.querySelectorAll('select[name="additional_account_ids"]');
+        additionalSelects.forEach(select => {
+            if (select.value) {
+                additionalAccounts.push(select.value);
+            }
+        });
+        
+        // Формируем полный список аккаунтов (primary + additional)
+        const allAccountIds = [];
+        if (primaryAccountId) {
+            allAccountIds.push(primaryAccountId);
+        }
+        allAccountIds.push(...additionalAccounts);
+        
+        // Собираем DSS клавиши
+        const dssKeys = [];
+        const dssRows = document.querySelectorAll('#dssKeysTable tbody tr');
+
+        console.log('=== Начало сбора DSS клавиш ===');
+        console.log('Найдено строк:', dssRows.length);
+
+        dssRows.forEach((row, index) => {
+            const typeSelect = row.querySelector('.dss-type');
+            const accountSelect = row.querySelector('.dss-account');
+            const type = parseInt(typeSelect?.value || 0);
+            
+            console.log(`Строка ${index}:`);
+            console.log('  Type select:', typeSelect);
+            console.log('  Account select:', accountSelect);
+            console.log('  Type value:', typeSelect?.value);
+            console.log('  Account value:', accountSelect?.value);
+            
+            const key = {
+                line: parseInt(row.querySelector('.dss-line')?.value || (index + 1)),
+                type: type,
+                account: type === 0 ? 0 : parseInt(accountSelect?.value || 1),
+                value: row.querySelector('.dss-value')?.value || '',
+                extension: row.querySelector('.dss-extension')?.value || '',
+                label: row.querySelector('.dss-label')?.value || ''
+            };
+            
+            console.log('  Собранный key:', key);
+            dssKeys.push(key);
+        });
+
+        console.log('Итоговый массив dssKeys:', dssKeys);
+        console.log('=== Конец сбора DSS клавиш ===');
+        
+        // Сортируем по номеру линии перед отправкой
+        // dssKeys.sort((a, b) => a.line - b.line);
+        
+        // // Перенумеровываем line по порядку после сортировки
+        // dssKeys.forEach((key, idx) => {
+        //     key.line = idx + 1;
+        // });
+        
+        // Собираем Custom Config
+        const customConfig = {};
+        const customRows = document.querySelectorAll('#customConfigContainer .row');
+        
+        customRows.forEach(row => {
+            const keyInput = row.querySelector('input[name^="custom_"]:not([name$="_value"])');
+            const valueInput = row.querySelector('input[name$="_value"]');
+            
+            if (keyInput && valueInput && keyInput.value && valueInput.value) {
+                customConfig[keyInput.value] = valueInput.value;
+            }
+        });
+        
+        // Создаём FormData
+        const formData = new FormData(this);
+        
+        // Добавляем account_ids как строку
+        formData.set('account_ids', allAccountIds.join(','));
+        formData.set('primary_account_id', primaryAccountId);
+        
+        // Добавляем DSS keys как JSON строку
+        formData.set('custom_dss_keys', JSON.stringify(dssKeys));
+        
+        // Добавляем custom config как JSON строку
+        formData.set('custom_config', JSON.stringify(customConfig));
+        
+        // Отправляем форму через fetch
         const response = await fetch(this.action, {
             method: 'POST',
             body: formData
@@ -349,7 +455,8 @@ document.getElementById('phoneForm').addEventListener('submit', async function(e
             alert('Ошибка: ' + (error.detail || 'Неизвестная ошибка'));
         }
     } catch (error) {
-        alert('Ошибка сети: ' + error.message);
+        console.error('Error:', error);
+        alert('Произошла ошибка: ' + error.message);
     }
 });
 </script>

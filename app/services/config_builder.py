@@ -79,11 +79,20 @@ def get_merged_config(db: Session, mac: str) -> dict:
 
     config["accounts"] = accounts_config
     
+    # 6. Логика DSS-клавиш
+    print(f"\n[DEBUG CONFIG_BUILDER] MAC: {mac_clean}")
+    print(f"[DEBUG CONFIG_BUILDER] phone.override_dss_keys = {phone.override_dss_keys}")
+    print(f"[DEBUG CONFIG_BUILDER] phone.custom_dss_keys = {phone.custom_dss_keys}")
+    
     dss_keys = []
     if phone.override_dss_keys and phone.custom_dss_keys:
-        dss_keys = phone.custom_dss_keys
+        dss_keys = sorted(phone.custom_dss_keys, key=lambda x: x.get('line', 0))
+        print(f"[DEBUG CONFIG_BUILDER] Используем custom_dss_keys: {dss_keys}")
     elif primary_account and primary_account.dss_keys:
-        dss_keys = primary_account.dss_keys
+        dss_keys = sorted(primary_account.dss_keys, key=lambda x: x.get('line', 0))
+        print(f"[DEBUG CONFIG_BUILDER] Используем dss_keys из аккаунта: {dss_keys}")
+    else:
+        print(f"[DEBUG CONFIG_BUILDER] DSS keys пусты!")
         
     config["dss_keys"] = dss_keys or []
     config["mac"] = mac_clean

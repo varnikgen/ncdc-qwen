@@ -43,11 +43,43 @@ account.{{ acc.line }}.codec.3.priority = 3
 ##                        DSS Keys (Line Keys)                                       ##
 #######################################################################################
 {% for key in config.dss_keys %}
+{% if key.type == 0 %}
+{# N/A - отключаем клавишу #}
+linekey.{{ key.line }}.enable = 0
+linekey.{{ key.line }}.type = 0
+linekey.{{ key.line }}.value = ""
+linekey.{{ key.line }}.extension = ""
+linekey.{{ key.line }}.label = ""
+linekey.{{ key.line }}.line = 0
+{% else %}
+linekey.{{ key.line }}.enable = 1
 linekey.{{ key.line }}.type = {{ key.type }}
+{% if key.value %}
 linekey.{{ key.line }}.value = {{ key.value }}
+{% else %}
+linekey.{{ key.line }}.value = ""
+{% endif %}
+{% if key.extension %}
 linekey.{{ key.line }}.extension = {{ key.extension }}
+{% else %}
+linekey.{{ key.line }}.extension = ""
+{% endif %}
+{% if key.label %}
 linekey.{{ key.line }}.label = {{ key.label }}
-linekey.{{ key.line }}.line = {{ key.line }}
+{% else %}
+linekey.{{ key.line }}.label = ""
+{% endif %}
+{% if key.type == 13 %}
+{# Speed Dial: 0 = Auto, иначе номер аккаунта #}
+linekey.{{ key.line }}.line = {{ key.account | default(0) }}
+{% elif key.type == 15 %}
+{# Account: номер аккаунта #}
+linekey.{{ key.line }}.line = {{ key.account | default(1) }}
+{% elif key.type == 16 %}
+{# BLF: номер аккаунта (без Auto) #}
+linekey.{{ key.line }}.line = {{ key.account | default(1) }}
+{% endif %}
+{% endif %}
 {% endfor %}
 
 #######################################################################################

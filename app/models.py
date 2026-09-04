@@ -58,6 +58,10 @@ class Phone(Base):
     id = Column(Integer, primary_key=True, index=True)
     mac = Column(String(12), unique=True, index=True, nullable=False)  # "001565C18725"
     model_name = Column(String, ForeignKey("phone_models.name"), nullable=True)
+
+    # Авторизация на телефоне
+    admin_username = Column(String(64), default="admin")
+    admin_password = Column(String(64), default="admin")
     
     # Список ID аккаунтов (порядок = номер линии: index 0 → account 1)
     account_ids = Column(JSON, default=list)
