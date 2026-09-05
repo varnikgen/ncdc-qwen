@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}{% if model %}Edit Model: {{ model.name }}{% else %}New Model{% endif %} - NCDC{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>{% if model %}Edit Model: {{ model.name }}{% else %}New Model{% endif %}</h2>
+    <a href="/models" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to List
+    </a>
+</div>
+
+<form id="modelForm" method="post" action="{% if model %}/models/{{ model.id }}/update{% else %}/models/{% endif %}">
+    <div class="row">
+        <!-- Basic Info -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header"><i class="bi bi-info-circle"></i> Basic Information</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Model Name <span class="text-danger">*</span></label>
+                        <input type="text" name="name" class="form-control" value="{{ model.name if model else '' }}" placeholder="e.g., T46U" required {% if model %}readonly{% endif %}>
+                        {% if model %}<div class="form-text">Model name cannot be changed after creation.</div>{% endif %}
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Max Accounts</label>
+                            <input type="number" name="max_accounts" class="form-control" value="{{ model.max_accounts if model else 12 }}" min="1" max="16">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Max DSS Keys</label>
+                            <input type="number" name="max_dss_keys" class="form-control" value="{{ model.max_dss_keys if model else 40 }}" min="1" max="60">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Firmware -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header"><i class="bi bi-download"></i> Firmware</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Firmware URL</label>
+                        <input type="text" name="firmware_url" class="form-control" value="{{ model.firmware_url if model else '' }}" placeholder="e.g., tftp://10.30.30.30/108.86.14.10.rom">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 802.1x Settings -->
+    <div class="card mb-4">
+        <div class="card-header"><i class="bi bi-shield-lock"></i> 802.1x Authentication</div>
+        <div class="card-body">
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" name="ieee802_1x_enable" id="ieee802_1x_enable" 
+                       {% if model and model.ieee802_1x_enable %}checked{% endif %}>
+                <label class="form-check-label fw-bold" for="ieee802_1x_enable">Enable 802.1x</label>
+            </div>
+            
+            <div id="dot1xSettings" style="{% if not model or not model.ieee802_1x_enable %}display: none;{% endif %}">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Identity</label>
+                        <input type="text" name="ieee802_1x_identity" class="form-control" value="{{ model.ieee802_1x_identity if model else '' }}">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Mode</label>
+                        <select name="ieee802_1x_mode" class="form-select">
+                            <option value="0" {% if model and model.ieee802_1x_mode == 0 %}selected{% endif %}>0 - EAP-TLS (Certificates)</option>
+                            <option value="2" {% if model and model.ieee802_1x_mode == 2 %}selected{% endif %}>2 - EAP-MD5 (Password)</option>
+                            <option value="3" {% if model and model.ieee802_1x_mode == 3 %}selected{% endif %}>3 - EAP-PEAP</option>
+                            <option value="5" {% if model and model.ieee802_1x_mode == 5 %}selected{% endif %}>5 - EAP-TTLS</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Upload Mode</label>
+                        <select name="ieee802_1x_upload_mode" class="form-select">
+                            <option value="0" {% if model and model.ieee802_1x_upload_mode == 0 %}selected{% endif %}>0 - Default</option>
+                            <option value="1" {% if model and model.ieee802_1x_upload_mode == 1 %}selected{% endif %}>1 - Upload on Provisioning</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Root Cert URL</label>
+                        <input type="text" name="ieee802_1x_root_cert_url" class="form-control" value="{{ model.ieee802_1x_root_cert_url if model else '' }}">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Client Cert URL</label>
+                        <input type="text" name="ieee802_1x_client_cert_url" class="form-control" value="{{ model.ieee802_1x_client_cert_url if model else '' }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Default Config -->
+    <div class="card mb-4">
+        <div class="card-header"><i class="bi bi-code-square"></i> Default Model Configuration (JSON)</div>
+        <div class="card-body">
+            <div class="form-text mb-2">These settings will be applied to all phones of this model, unless overridden at the phone level.</div>
+            <textarea name="default_config" class="form-control font-monospace" rows="8" placeholder='{
+  "phone_setting.interrupted_ring_tone.enable": 1,
+  "voice.tone.dial.volume": 5
+}'>{{ default_config_json }}</textarea>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="d-flex justify-content-end gap-2">
+        {% if model %}
+        <button type="button" class="btn btn-outline-danger" onclick="deleteModel()">
+            <i class="bi bi-trash"></i> Delete
+        </button>
+        {% endif %}
+        <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-save"></i> Save Model
+        </button>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Toggle 802.1x settings visibility
+document.getElementById('ieee802_1x_enable').addEventListener('change', function() {
+    document.getElementById('dot1xSettings').style.display = this.checked ? 'block' : 'none';
+});
+
+// Form submission
+document.getElementById('modelForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    // Validate JSON
+    const jsonTextarea = document.querySelector('textarea[name="default_config"]');
+    try {
+        JSON.parse(jsonTextarea.value || '{}');
+    } catch (err) {
+        alert('Invalid JSON in Default Model Configuration: ' + err.message);
+        return;
+    }
+
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch(this.action, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            alert(result.message);
+            window.location.href = result.redirect || '/models';
+        } else {
+            const error = await response.json();
+            alert('Error: ' + (error.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        alert('Network error: ' + error.message);
+    }
+});
+
+// Delete model
+function deleteModel() {
+    if (confirm('Are you sure you want to delete this model? Phones using this model will lose model-specific settings.')) {
+        const modelId = window.location.pathname.split('/').filter(Boolean).pop();
+        fetch(`/models/${modelId}/delete`, { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert(data.message);
+                window.location.href = '/models';
+            } else {
+                alert('Error: ' + data.detail);
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

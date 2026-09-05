@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import settings
 
 # 2. Импортируем роутеры (используем псевдоним 'as' для роутера настроек, чтобы избежать конфликта)
-from app.routers import provisioning, actions, phones, accounts, settings as settings_router
+from app.routers import provisioning, actions, phones, accounts, settings as settings_router, models as models_router
 
 from app.database import engine, Base
 
@@ -29,6 +29,7 @@ app.include_router(actions.router)
 app.include_router(phones.router)
 app.include_router(accounts.router)
 app.include_router(settings_router.router)
+app.include_router(models_router.router)
 
 @app.get("/")
 async def dashboard(request: Request):
