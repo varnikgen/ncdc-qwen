@@ -6,9 +6,13 @@ from fastapi.staticfiles import StaticFiles
 from app.config import settings
 
 # 2. Импортируем роутеры (используем псевдоним 'as' для роутера настроек, чтобы избежать конфликта)
-from app.routers import provisioning, actions, phones, accounts, settings as settings_router, models as models_router
+from app.routers import provisioning, actions, phones, accounts, settings as settings_router, models as models_router, audit as audit_router
 
 from app.database import engine, Base
+
+# Импортируем задачу очистки
+from app.services.audit_cleanup import cleanup_audit_logs_task
+import asyncio
 
 # Создаем таблицы в БД при старте
 Base.metadata.create_all(bind=engine)
@@ -30,6 +34,12 @@ app.include_router(phones.router)
 app.include_router(accounts.router)
 app.include_router(settings_router.router)
 app.include_router(models_router.router)
+app.include_router(audit_router.router)
+
+@app.on_event("startup")
+async def startup_event():
+    # Запускаем задачу очистки в фоне, не блокируя основной сервер
+    asyncio.create_task(cleanup_audit_logs_task())
 
 @app.get("/")
 async def dashboard(request: Request):

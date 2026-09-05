@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Log - NCDC{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-journal-text"></i> Audit Log</h2>
+    <button type="button" class="btn btn-outline-danger btn-sm" onclick="clearOldLogs()">
+        <i class="bi bi-trash"></i> Clear Old Logs
+    </button>
+</div>
+
+<!-- Статистика -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h6 class="card-title">Total Records</h6>
+                <h3 class="mb-0">{{ total }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-9">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title">Actions Breakdown</h6>
+                <div class="d-flex flex-wrap gap-2">
+                    {% for stat in action_stats %}
+                    <span class="badge bg-secondary">
+                        {{ stat.action }}: {{ stat.count }}
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Фильтры -->
+<div class="card mb-4">
+    <div class="card-header"><i class="bi bi-funnel"></i> Filters</div>
+    <div class="card-body">
+        <form method="get" action="/audit/" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Period (days)</label>
+                <select name="days" class="form-select">
+                    <option value="1" {% if days == 1 %}selected{% endif %}>Last 1 day</option>
+                    <option value="7" {% if days == 7 %}selected{% endif %}>Last 7 days</option>
+                    <option value="30" {% if days == 30 %}selected{% endif %}>Last 30 days</option>
+                    <option value="90" {% if days == 90 %}selected{% endif %}>Last 90 days</option>
+                    <option value="365" {% if days == 365 %}selected{% endif %}>Last year</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Action Type</label>
+                <select name="action" class="form-select">
+                    <option value="">All Actions</option>
+                    {% for act in available_actions %}
+                    <option value="{{ act }}" {% if action == act %}selected{% endif %}>{{ act }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Records per page</label>
+                <select name="per_page" class="form-select">
+                    <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+                    <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Apply
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Таблица логов -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 150px;">Timestamp</th>
+                        <th style="width: 150px;">Action</th>
+                        <th style="width: 120px;">Entity Type</th>
+                        <th style="width: 80px;">Entity ID</th>
+                        <th style="width: 100px;">User</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td class="text-nowrap">{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td>
+                            {% if 'CREATE' in log.action %}
+                                <span class="badge bg-success">{{ log.action }}</span>
+                            {% elif 'UPDATE' in log.action %}
+                                <span class="badge bg-warning text-dark">{{ log.action }}</span>
+                            {% elif 'DELETE' in log.action %}
+                                <span class="badge bg-danger">{{ log.action }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ log.action }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ log.entity_type }}</td>
+                        <td>{{ log.entity_id }}</td>
+                        <td>{{ log.user }}</td>
+                        <td class="text-break">{{ log.details }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">No audit logs found for the selected period.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Пагинация -->
+{% if total_pages > 1 %}
+<nav aria-label="Audit log pagination" class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page > 1 %}
+        <li class="page-item">
+            <a class="page-link" href="?days={{ days }}&action={{ action }}&per_page={{ per_page }}&page={{ page - 1 }}">
+                <i class="bi bi-chevron-left"></i> Previous
+            </a>
+        </li>
+        {% endif %}
+        
+        {% for p in range(1, total_pages + 1) %}
+            {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+            <li class="page-item {% if p == page %}active{% endif %}">
+                <a class="page-link" href="?days={{ days }}&action={{ action }}&per_page={{ per_page }}&page={{ p }}">
+                    {{ p }}
+                </a>
+            </li>
+            {% elif p == page - 3 or p == page + 3 %}
+            <li class="page-item disabled">
+                <span class="page-link">...</span>
+            </li>
+            {% endif %}
+        {% endfor %}
+        
+        {% if page < total_pages %}
+        <li class="page-item">
+            <a class="page-link" href="?days={{ days }}&action={{ action }}&per_page={{ per_page }}&page={{ page + 1 }}">
+                Next <i class="bi bi-chevron-right"></i>
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+<div class="text-center text-muted mt-3">
+    Showing {{ ((page - 1) * per_page) + 1 }} to {{ [page * per_page, total] | min }} of {{ total }} entries
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function clearOldLogs() {
+    const days = prompt('Delete logs older than how many days?', '30');
+    if (days && !isNaN(days)) {
+        if (confirm(`Are you sure you want to delete all logs older than ${days} days?`)) {
+            fetch(`/audit/clear?days=${days}`, { method: 'GET' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert(data.message);
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                });
+        }
+    }
+}
+</script>
+{% endblock %}
