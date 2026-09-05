@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}Global Configuration - NCDC{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-gear-wide-connected"></i> Global Configuration</h2>
+</div>
+
+<form id="globalConfigForm">
+    {% for group_name, params in grouped_settings.items() %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="bi bi-folder"></i> {{ group_name }}
+        </div>
+        <div class="card-body">
+            {% for param in params %}
+            <div class="row mb-3 align-items-center">
+                <div class="col-md-4">
+                    <label class="form-label mb-0 fw-bold">{{ param.label }}</label>
+                    <div class="form-text small text-muted">{{ param.key }}</div>
+                </div>
+                <div class="col-md-7">
+                    {% if param.type == "select" %}
+                    <select name="param_{{ param.key }}" class="form-select">
+                        <option value="">-- Not Set --</option>
+                        {% for opt_val, opt_label in param.options.items() %}
+                        <option value="{{ opt_val }}" {% if param.value == opt_val or param.value|string == opt_val %}selected{% endif %}>
+                            {{ opt_label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    {% elif param.type == "boolean" %}
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" 
+                               name="param_{{ param.key }}" 
+                               id="switch_{{ param.key | replace('.', '_') }}"
+                               value="1"
+                               {% if param.value == 1 or param.value == "1" or param.value == true %}checked{% endif %}>
+                        <label class="form-check-label" for="switch_{{ param.key | replace('.', '_') }}">
+                            {% if param.value == 1 or param.value == "1" or param.value == true %}Enabled{% else %}Disabled{% endif %}
+                        </label>
+                    </div>
+                    {% else %}
+                    <input type="text" name="param_{{ param.key }}" 
+                           class="form-control" 
+                           value="{{ param.value }}"
+                           placeholder="Enter value...">
+                    {% endif %}
+                </div>
+                <div class="col-md-1 text-end">
+                    {% if param.value != "" and param.value is not none %}
+                    <button type="button" class="btn btn-outline-danger btn-sm" 
+                            onclick="clearParam('{{ param.key }}')" 
+                            title="Clear value">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if custom_params %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="bi bi-sliders"></i> Custom Parameters
+        </div>
+        <div class="card-body">
+            {% for param in custom_params %}
+            <div class="row mb-3 align-items-center">
+                <div class="col-md-4">
+                    <label class="form-label mb-0 fw-bold">{{ param.label }}</label>
+                </div>
+                <div class="col-md-7">
+                    <input type="text" name="param_{{ param.key }}" 
+                           class="form-control" 
+                           value="{{ param.value }}">
+                </div>
+                <div class="col-md-1 text-end">
+                    <button type="button" class="btn btn-outline-danger btn-sm" 
+                            onclick="clearParam('{{ param.key }}')">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="d-flex justify-content-end gap-2 mb-4">
+        <button type="button" class="btn btn-outline-secondary" onclick="history.back()">
+            Cancel
+        </button>
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-save"></i> Save Global Config
+        </button>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Очистка параметра
+function clearParam(key) {
+    const input = document.querySelector(`input[name="param_${key}"], select[name="param_${key}"]`);
+    if (input) {
+        if (input.type === 'checkbox') {
+            input.checked = false;
+        } else {
+            input.value = '';
+        }
+    }
+}
+
+// Обновление label для switch при изменении
+document.querySelectorAll('.form-check-input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', function() {
+        const label = this.nextElementSibling;
+        if (label) {
+            label.textContent = this.checked ? 'Enabled' : 'Disabled';
+        }
+    });
+});
+
+// Обработчик отправки формы
+document.getElementById('globalConfigForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch('/settings/global', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            alert(result.message || 'Настройки сохранены!');
+            location.reload();
+        } else {
+            const error = await response.json();
+            alert('Ошибка: ' + (error.detail || 'Неизвестная ошибка'));
+        }
+    } catch (error) {
+        alert('Ошибка сети: ' + error.message);
+    }
+});
+</script>
+{% endblock %}

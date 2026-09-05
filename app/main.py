@@ -1,9 +1,14 @@
 from fastapi import FastAPI, Request
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from app.database import engine, Base
+
+# 1. Импортируем настройки приложения
 from app.config import settings
-from app.routers import provisioning, actions, phones, accounts
+
+# 2. Импортируем роутеры (используем псевдоним 'as' для роутера настроек, чтобы избежать конфликта)
+from app.routers import provisioning, actions, phones, accounts, settings as settings_router
+
+from app.database import engine, Base
 
 # Создаем таблицы в БД при старте
 Base.metadata.create_all(bind=engine)
@@ -18,23 +23,23 @@ app = FastAPI(
 templates = Jinja2Templates(directory="app/templates")
 app.state.templates = templates
 
-# Подключаем роутеры
+# Подключаем роутеры (обратите внимание на settings_router)
 app.include_router(provisioning.router)
 app.include_router(actions.router)
 app.include_router(phones.router)
 app.include_router(accounts.router)
+app.include_router(settings_router.router)
 
 @app.get("/")
 async def dashboard(request: Request):
-    # Заглушка для Dashboard, пока используем простую статистику
+    # Заглушка для Dashboard
     from app.models import Phone
     from app.database import get_db
-    
-    # Простой способ получить сессию для дашборда
     from sqlalchemy.orm import Session
+    
     db = next(get_db())
     total = db.query(Phone).count()
-    online = db.query(Phone).filter(Phone.status == "online").count()
+    online = db.query(Phone).filter(Phone.status.ilike("online")).count()
     offline = db.query(Phone).filter(Phone.status.in_(["offline", "unregistered"])).count()
     
     return templates.TemplateResponse("dashboard.html", {
