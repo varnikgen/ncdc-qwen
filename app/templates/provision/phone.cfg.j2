@@ -2,41 +2,57 @@
 ##File header "#!version:1.0.0.1" can not be edited or deleted.##
 
 #######################################################################################
+##                        GLOBAL / MODEL / CUSTOM SETTINGS                           ##
+#######################################################################################
+{# Рендерим все настройки, которые НЕ являются служебными объектами (accounts, dss_keys, phone, model) #}
+{% for key, value in config.items() %}
+    {% if key not in ['accounts', 'dss_keys', 'phone', 'model'] and value is not none %}
+        {% if value is boolean %}
+            {# Преобразуем Python True/False в 1/0 для Yealink #}
+            {{ key }} = {{ 1 if value else 0 }}
+        {% else %}
+            {{ key }} = {{ value }}
+        {% endif %}
+    {% endif %}
+{% endfor %}
+
+#######################################################################################
+##                        Action URL Configuration                                   ##
+#######################################################################################
+action_url.enable = {{ 1 if config.get('action_url.enable') else 0 }}
+action_url.limit_ip = {{ config.get('action_url.limit_ip', '10.30.30.30') }}
+action_url.registered = {{ config.get('action_url.registered', '') }}
+action_url.unregistered = {{ config.get('action_url.unregistered', '') }}
+action_url.registration_failed = {{ config.get('action_url.registration_failed', '') }}
+action_url.off_hook = {{ config.get('action_url.off_hook', '') }}
+action_url.on_hook = {{ config.get('action_url.on_hook', '') }}
+action_url.incoming_call = {{ config.get('action_url.incoming_call', '') }}
+action_url.outgoing_call = {{ config.get('action_url.outgoing_call', '') }}
+action_url.call_established = {{ config.get('action_url.call_established', '') }}
+action_url.call_missed = {{ config.get('action_url.call_missed', '') }}
+action_url.dnd_on = {{ config.get('action_url.dnd_on', '') }}
+action_url.dnd_off = {{ config.get('action_url.dnd_off', '') }}
+action_url.setup_complete = {{ config.get('action_url.setup_complete', '') }}
+
+#######################################################################################
 ##                        ACCOUNTS CONFIGURATION                                     ##
 #######################################################################################
 {% for acc in config.accounts %}
-# --- Account {{ acc.line }} Settings ---
-account.{{ acc.line }}.enable = 1
-account.{{ acc.line }}.label = {{ acc.label }}
-account.{{ acc.line }}.display_name = {{ acc.display_name }}
-account.{{ acc.line }}.auth_name = {{ acc.auth_id }}
-account.{{ acc.line }}.user_name = {{ acc.user_id }}
-account.{{ acc.line }}.password = {{ acc.password }}
-account.{{ acc.line }}.sip_server.1.address = {{ acc.server_address }}
-account.{{ acc.line }}.sip_server_port = {{ acc.sip_port }}
-
-{% if acc.transport == 'udp' %}
-account.{{ acc.line }}.sip_server.1.transport_type = 0
-{% elif acc.transport == 'tcp' %}
-account.{{ acc.line }}.sip_server.1.transport_type = 1
-{% elif acc.transport == 'tls' %}
-account.{{ acc.line }}.sip_server.1.transport_type = 2
-{% endif %}
-
-account.{{ acc.line }}.sip_server.1.expires = {{ acc.register_expires }}
-account.{{ acc.line }}.dtmf.type = {{ config.get('yealink_dtmf_type', 0) }}
-
-# Codecs for Account {{ acc.line }}
-account.{{ acc.line }}.codec.1.enable = 1
-account.{{ acc.line }}.codec.1.payload_type = PCMU
-account.{{ acc.line }}.codec.1.priority = 1
-account.{{ acc.line }}.codec.2.enable = 1
-account.{{ acc.line }}.codec.2.payload_type = PCMA
-account.{{ acc.line }}.codec.2.priority = 2
-account.{{ acc.line }}.codec.3.enable = 1
-account.{{ acc.line }}.codec.3.payload_type = G729
-account.{{ acc.line }}.codec.3.priority = 3
-
+account.{{ acc.index }}.enable = 1
+account.{{ acc.index }}.label = {{ acc.name }}
+account.{{ acc.index }}.display_name = {{ acc.display_name or acc.username }}
+account.{{ acc.index }}.auth_name = {{ acc.username }}
+account.{{ acc.index }}.user_name = {{ acc.username }}
+account.{{ acc.index }}.password = {{ acc.password }}
+account.{{ acc.index }}.sip_server.1.address = {{ acc.sip_server }}
+account.{{ acc.index }}.sip_server.1.port = {{ acc.sip_port }}
+account.{{ acc.index }}.sip_server.1.transport_type = {{ 2 if acc.transport == 'tcp' else (3 if acc.transport == 'tls' else 0) }}
+account.{{ acc.index }}.codec.1.enable = 1
+account.{{ acc.index }}.codec.1.payload_type = PCMU
+account.{{ acc.index }}.codec.1.priority = 1
+account.{{ acc.index }}.codec.2.enable = 1
+account.{{ acc.index }}.codec.2.payload_type = PCMA
+account.{{ acc.index }}.codec.2.priority = 2
 {% endfor %}
 
 #######################################################################################
@@ -44,7 +60,6 @@ account.{{ acc.line }}.codec.3.priority = 3
 #######################################################################################
 {% for key in config.dss_keys %}
 {% if key.type == 0 %}
-{# N/A - отключаем клавишу #}
 linekey.{{ key.line }}.enable = 0
 linekey.{{ key.line }}.type = 0
 linekey.{{ key.line }}.value = ""
@@ -70,21 +85,11 @@ linekey.{{ key.line }}.label = {{ key.label }}
 linekey.{{ key.line }}.label = ""
 {% endif %}
 {% if key.type == 13 %}
-{# Speed Dial: 0 = Auto, иначе номер аккаунта #}
 linekey.{{ key.line }}.line = {{ key.account | default(0) }}
 {% elif key.type == 15 %}
-{# Account: номер аккаунта #}
 linekey.{{ key.line }}.line = {{ key.account | default(1) }}
 {% elif key.type == 16 %}
-{# BLF: номер аккаунта (без Auto) #}
 linekey.{{ key.line }}.line = {{ key.account | default(1) }}
 {% endif %}
 {% endif %}
-{% endfor %}
-
-#######################################################################################
-##                        Custom Phone Overrides                                     ##
-#######################################################################################
-{% for key, value in config.get('custom_phone_settings', {}).items() %}
-{{ key }} = {{ value }}
 {% endfor %}

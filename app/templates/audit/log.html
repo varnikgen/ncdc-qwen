@@ -171,7 +171,11 @@ function clearOldLogs() {
     const days = prompt('Delete logs older than how many days?', '30');
     if (days && !isNaN(days)) {
         if (confirm(`Are you sure you want to delete all logs older than ${days} days?`)) {
-            fetch(`/audit/clear?days=${days}`, { method: 'GET' })
+            fetch(`/audit/clear`, { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `days=${days}`
+            })
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success') {

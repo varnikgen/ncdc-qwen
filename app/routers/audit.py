@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, Query, Form
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
 from datetime import datetime, timedelta
@@ -67,11 +67,11 @@ async def audit_log(
         "action_stats": action_stats
     })
 
-@router.get("/clear")
+@router.post("/clear") # <-- БЫЛО GET, СТАЛО POST
 async def clear_audit_log(
     request: Request,
     db: Session = Depends(get_db),
-    days: Optional[int] = Query(default=30, description="Удалить логи старше N дней")
+    days: int = Form(default=30) # <-- Используем Form для POST
 ):
     """Очистка старых логов аудита"""
     if days:

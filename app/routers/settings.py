@@ -48,10 +48,27 @@ PARAM_LABELS = {
     "static.auto_provision.custom.protect": "Protect Custom Settings",
     "static.auto_provision.weekly.enable": "Enable Weekly Provisioning",
     
-    # Action URI
-    "features.action_uri_limit_ip": "Action URI Limit IP",
-    "features.action_uri.phone.enable": "Enable Phone Action URI",
-    "features.action_uri.expansion_module.enable": "Enable Expansion Module Action URI",
+    # Action URL - общие настройки
+    "action_url.enable": "Enable Action URL",
+    "action_url.limit_ip": "Action URL Limit IP",
+    "action_url.phone.enable": "Enable Phone Action URI",
+    "action_url.expansion_module.enable": "Enable Expansion Module Action URI",
+    
+    # Action URL - события
+    "action_url.enable": "Enable Action URL",
+    "action_url.limit_ip": "Action URL Limit IP",
+    "action_url.registered": "Registered URL",
+    "action_url.unregistered": "Unregistered URL",
+    "action_url.registration_failed": "Registration Failed URL",
+    "action_url.off_hook": "Off Hook URL",
+    "action_url.on_hook": "On Hook URL",
+    "action_url.incoming_call": "Incoming Call URL",
+    "action_url.outgoing_call": "Outgoing Call URL",
+    "action_url.call_established": "Call Established URL",
+    "action_url.call_missed": "Call Missed URL",
+    "action_url.dnd_on": "DND On URL",
+    "action_url.dnd_off": "DND Off URL",
+    "action_url.setup_complete": "Setup Complete URL",
     
     # Дополнительные
     "features.remote_phonebook.enable": "Enable Remote Phonebook",
@@ -154,6 +171,21 @@ PARAM_GROUPS = {
         "features.action_uri.phone.enable",
         "features.action_uri.expansion_module.enable",
     ],
+    "Action URL Events": [
+        "action_url.enable",
+        "action_url.limit_ip",
+        "action_url.registered",
+        "action_url.unregistered",
+        "action_url.registration_failed",
+        "action_url.off_hook",
+        "action_url.on_hook",
+        "action_url.incoming_call",
+        "action_url.outgoing_call",
+        "action_url.call_established",
+        "action_url.call_missed",
+        "action_url.dnd_on",
+        "action_url.dnd_off",
+    ],
     "Features": [
         "features.remote_phonebook.enable",
         "features.dnd.allow",
@@ -186,6 +218,9 @@ BOOLEAN_PARAMS = {
     "features.fwd.allow",
     "features.show_action_uri_option",
     "action_url.show_msgbox",
+    "action_url.enable",
+    "action_url.phone.enable",
+    "action_url.expansion_module.enable",
 }
 
 

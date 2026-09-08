@@ -6,7 +6,7 @@ import re
 
 from app.database import get_db
 from app.models import PhoneModel, GlobalConfig
-from app.services.config_builder import get_merged_config
+from app.services.config_builder import build_phone_config
 
 router = APIRouter(prefix="/provision", tags=["provisioning"])
 
@@ -48,7 +48,7 @@ async def get_config(identifier: str, db: Session = Depends(get_db)):
     if MAC_PATTERN.match(identifier):
         # Это телефон
         print(f"\n✅ DEBUG: ROUTED TO PHONE CONFIG === MAC: {identifier}\n")
-        config_data = get_merged_config(db, identifier)
+        config_data = build_phone_config(db, identifier)
         template = jinja_env.get_template("phone.cfg.j2")
         rendered = template.render(config=config_data)
         return Response(content=rendered, media_type="text/plain")

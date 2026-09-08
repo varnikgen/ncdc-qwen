@@ -1,104 +1,75 @@
 import json
-from sqlalchemy.orm import Session
-from app.models import Phone, PhoneModel, Account, GlobalConfig
+import logging
+from app.models import Phone, Account, PhoneModel, GlobalConfig
 
-def get_merged_config(db: Session, mac: str) -> dict:
-    mac_clean = mac.replace(":", "").replace("-", "").upper()
-    print(f"\n[DEBUG] === Начало сборки конфига для MAC: {mac_clean} ===")
+logger = logging.getLogger("ncdc.config_builder")
+
+def build_phone_config(db, mac: str) -> dict:
+    mac_clean = mac.replace(":", "").lower()
+    logger.info(f"=== Начало сборки конфига для MAC: {mac_clean.upper()} ===")
     
-    global_cfg = db.query(GlobalConfig).first()
-    config = global_cfg.settings.copy() if global_cfg and global_cfg.settings else {}
-    
-    phone = db.query(Phone).filter(Phone.mac == mac_clean).first()
+    # 1. Загружаем телефон
+    phone = db.query(Phone).filter(Phone.mac.ilike(mac_clean)).first()
     if not phone:
-        print(f"[DEBUG] Телефон не найден, создаем новый: {mac_clean}")
-        phone = Phone(mac=mac_clean, status="offline", account_ids=[])
-        db.add(phone)
-        db.commit()
-        db.refresh(phone)
+        raise ValueError(f"Телефон с MAC {mac} не найден")
     
-    print(f"[DEBUG] Телефон найден. model_name={phone.model_name}")
-    print(f"[DEBUG] Сырое значение account_ids из БД: {phone.account_ids} (тип: {type(phone.account_ids)})")
-    print(f"[DEBUG] primary_account_id: {phone.primary_account_id}")
+    # 2. Загружаем глобальные настройки
+    global_cfg = db.query(GlobalConfig).first()
+    global_settings = global_cfg.settings if global_cfg and global_cfg.settings else {}
 
-    if phone.model_name:
-        model = db.query(PhoneModel).filter(PhoneModel.name == phone.model_name).first()
-        if model:
-            if model.default_config:
-                config.update(model.default_config)
-            config["model_firmware_url"] = model.firmware_url
-            config["model_802_1x_enable"] = model.ieee802_1x_enable
-            config["model_802_1x_identity"] = model.ieee802_1x_identity
-            config["model_802_1x_mode"] = model.ieee802_1x_mode
-            config["model_802_1x_root_cert_url"] = model.ieee802_1x_root_cert_url
-            config["model_802_1x_client_cert_url"] = model.ieee802_1x_client_cert_url
+     # === ОТЛАДКА ===
+    print(f"\n[DEBUG] Global settings count: {len(global_settings)}")
+    action_url_keys = [k for k in global_settings.keys() if 'action_url' in k]
+    print(f"[DEBUG] Action URL keys found: {action_url_keys}")
+    print(f"[DEBUG] action_url.registered.url = {global_settings.get('action_url.registered.url')}")
+    # ===============
     
-    if phone.custom_config:
-        config.update(phone.custom_config)
+    # 3. Загружаем настройки модели
+    model = db.query(PhoneModel).filter(PhoneModel.name == phone.model_name).first()
+    model_settings = model.default_config if model and model.default_config else {}
     
-    accounts_config = []
-    primary_account = None
+    # 4. Загружаем настройки телефона
+    phone_settings = phone.custom_config if phone.custom_config else {}
     
-    # БЕЗОПАСНОЕ извлечение account_ids (защита от строки вместо списка)
-    raw_account_ids = phone.account_ids
-    if isinstance(raw_account_ids, str):
-        try:
-            account_ids = json.loads(raw_account_ids)
-            print(f"[DEBUG] Преобразовали строку account_ids в список: {account_ids}")
-        except json.JSONDecodeError:
-            account_ids = []
-            print(f"[DEBUG] Ошибка парсинга JSON, используем пустой список")
-    else:
-        account_ids = raw_account_ids or []
-        print(f"[DEBUG] account_ids уже является списком или None: {account_ids}")
-
-    if account_ids:
-        for line_index, acc_id in enumerate(account_ids):
-            print(f"[DEBUG] Ищем аккаунт с ID: {acc_id}")
+    # 5. СЛИЯНИЕ (Merge) с приоритетом: Phone > Model > Global
+    # Используем простой цикл для плоского слияния нативных ключей
+    final_config = {}
+    final_config.update(global_settings)
+    final_config.update(model_settings)
+    final_config.update(phone_settings)
+    
+    # 6. Добавляем специфичные сущности, которые нужны для рендера (аккаунты, DSS)
+    final_config["phone"] = phone
+    final_config["model"] = model
+    
+    # Обработка аккаунтов
+    accounts_data = []
+    if phone.account_ids and isinstance(phone.account_ids, list):
+        for idx, acc_id in enumerate(phone.account_ids, start=1):
             acc = db.query(Account).filter(Account.id == acc_id).first()
             if acc:
-                print(f"[DEBUG] Аккаунт найден: {acc.name} (username: {acc.username})")
-                accounts_config.append({
-                    "line": line_index + 1,
-                    "label": acc.name,
-                    "display_name": acc.display_name,
-                    "auth_id": acc.username,
-                    "user_id": acc.username,
+                accounts_data.append({
+                    "index": idx,
+                    "name": acc.name,
+                    "username": acc.username,
                     "password": acc.password,
-                    "server_address": acc.sip_server,
+                    "sip_server": acc.sip_server,
                     "sip_port": acc.sip_port,
                     "transport": acc.transport,
-                    "register_expires": 3600,
+                    "display_name": acc.display_name
                 })
-                if primary_account is None or acc.id == phone.primary_account_id:
-                    primary_account = acc
-            else:
-                print(f"[DEBUG] Аккаунт с ID {acc_id} НЕ НАЙДЕН в БД!")
-    else:
-        print("[DEBUG] Список account_ids пуст!")
-
-    config["accounts"] = accounts_config
+    final_config["accounts"] = accounts_data
     
-    # 6. Логика DSS-клавиш
-    print(f"\n[DEBUG CONFIG_BUILDER] MAC: {mac_clean}")
-    print(f"[DEBUG CONFIG_BUILDER] phone.override_dss_keys = {phone.override_dss_keys}")
-    print(f"[DEBUG CONFIG_BUILDER] phone.custom_dss_keys = {phone.custom_dss_keys}")
-    
+    # Обработка DSS-клавиш (уже отсортированных)
     dss_keys = []
     if phone.override_dss_keys and phone.custom_dss_keys:
         dss_keys = sorted(phone.custom_dss_keys, key=lambda x: x.get('line', 0))
-        print(f"[DEBUG CONFIG_BUILDER] Используем custom_dss_keys: {dss_keys}")
-    elif primary_account and primary_account.dss_keys:
-        dss_keys = sorted(primary_account.dss_keys, key=lambda x: x.get('line', 0))
-        print(f"[DEBUG CONFIG_BUILDER] Используем dss_keys из аккаунта: {dss_keys}")
-    else:
-        print(f"[DEBUG CONFIG_BUILDER] DSS keys пусты!")
-        
-    config["dss_keys"] = dss_keys or []
-    config["mac"] = mac_clean
-    config["model"] = phone.model_name or "unknown"
+    elif phone.primary_account_id:
+        primary_acc = db.query(Account).filter(Account.id == phone.primary_account_id).first()
+        if primary_acc and primary_acc.dss_keys:
+            dss_keys = sorted(primary_acc.dss_keys, key=lambda x: x.get('line', 0))
+            
+    final_config["dss_keys"] = dss_keys
     
-    print(f"[DEBUG] Итоговый список аккаунтов для рендеринга: {len(accounts_config)} шт.")
-    print(f"[DEBUG] === Конец сборки конфига ===\n")
-    
-    return config
+    logger.info(f"=== Конец сборки конфига. Всего параметров: {len(final_config)} ===")
+    return final_config

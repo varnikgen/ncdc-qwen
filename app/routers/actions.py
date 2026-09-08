@@ -1,78 +1,61 @@
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Request, Depends
 from sqlalchemy.orm import Session
 from datetime import datetime
+import logging
 
 from app.database import get_db
 from app.models import Phone
-from app.services.audit import log_action
 
-router = APIRouter(prefix="/action", tags=["actions"])
+router = APIRouter(prefix="/actions", tags=["actions"])
+logger = logging.getLogger("ncdc.actions")
 
-# Обработчики для запросов БЕЗ trailing slash
-@router.get("")
-@router.post("")
-# Обработчики для запросов СО trailing slash
 @router.get("/")
-@router.post("/")
 async def handle_action_url(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    """
-    Обрабатывает Action URL запросы от телефонов Yealink.
-    Ожидаемые параметры: mac, ip, event
-    """
-    # Yealink может отправлять данные через GET (query) или POST (form)
-    params = dict(request.query_params)
-    if not params:
-        form_data = await request.form()
-        params = dict(form_data)
+    """Обработка Action URI запросов от телефонов Yealink"""
     
-    mac = params.get("mac", "").replace(":", "").replace("-", "").upper()
-    ip = params.get("ip", "")
-    event = params.get("event", "unknown")
+    # 1. Получаем IP телефона (учитываем проксирование через Nginx)
+    client_ip = request.client.host
+    if request.headers.get("x-forwarded-for"):
+        client_ip = request.headers["x-forwarded-for"].split(",")[0].strip()
     
+    # 2. Пытаемся извлечь MAC-адрес из User-Agent или параметров запроса
+    # Пример User-Agent: "Yealink SIP-T46U 108.87.14.1 24:9a:d8:6e:9d:88"
+    user_agent = request.headers.get("user-agent", "")
+    mac = request.query_params.get("mac", "").replace(":", "").upper()
+    
+    if not mac and user_agent:
+        # Простой парсинг MAC из конца User-Agent (последние 12 hex символов)
+        import re
+        match = re.search(r'([0-9A-Fa-f]{2}[:-]?){5}([0-9A-Fa-f]{2})$', user_agent.replace(" ", ""))
+        if match:
+            mac = match.group(0).replace(":", "").replace("-", "").upper()
+
     if not mac or len(mac) != 12:
-        raise HTTPException(status_code=400, detail="Invalid or missing MAC address")
-    
-    # Находим или создаем телефон
-    phone = db.query(Phone).filter(Phone.mac == mac).first()
+        logger.warning(f"Не удалось определить MAC из запроса. UA: {user_agent}, IP: {client_ip}")
+        return {"status": "ignored", "reason": "Unknown MAC"}
+
+    # 3. Находим телефон в БД
+    phone = db.query(Phone).filter(Phone.mac.ilike(mac)).first()
     if not phone:
-        phone = Phone(mac=mac, status="offline", account_ids=[])
-        db.add(phone)
-        db.flush()  # Получаем phone.id для логирования
+        logger.warning(f"Телефон с MAC {mac} не найден в БД")
+        return {"status": "ignored", "reason": "Phone not found"}
+
+    # 4. БЕЗУСЛОВНО обновляем last_seen и ip_address при любом обращении
+    phone.ip_address = client_ip
+    phone.last_seen = datetime.utcnow()
     
-    old_status = phone.status
-    new_status = old_status
+    # Опционально: обновляем статус, если пришел конкретный event (например, registered)
+    event = request.query_params.get("event", "")
+    if event == "registered":
+        phone.status = "online"
+    elif event == "unregistered":
+        phone.status = "unregistered"
+    # Если event другой (например, outgoing_call), статус не меняем, но last_seen обновился!
+
+    db.commit()
+    logger.info(f"✅ Action URL от {mac} (IP: {client_ip}, Event: {event}) обработан, last_seen обновлен.")
     
-    # Логика обновления статуса на основе события
-    if event in ["registered", "register_success"]:
-        new_status = "online"
-    elif event in ["unregistered", "register_failed"]:
-        new_status = "unregistered"
-    elif event == "dnd_on":
-        new_status = "dnd"
-    elif event == "dnd_off":
-        new_status = "online" if old_status in ["online", "dnd"] else "offline"
-    elif event in ["off_hook", "on_hook", "incoming_call", "call_established"]:
-        new_status = "online"
-        
-    # Обновляем БД только если статус или IP изменились
-    if new_status != old_status or not phone.ip_address:
-        phone.status = new_status
-        if ip:
-            phone.ip_address = ip
-        phone.last_seen = datetime.utcnow()
-        db.commit()
-        
-        # Логируем событие
-        log_action(
-            db=db,
-            action=f"EVENT_{event.upper()}",
-            entity_type="Phone",
-            entity_id=phone.id,
-            user="system",
-            details=f"MAC: {mac}, IP: {ip}, Status: {old_status} -> {new_status}"
-        )
-    
-    return {"status": "success", "mac": mac, "event": event, "new_status": phone.status}
+    return {"status": "success"}

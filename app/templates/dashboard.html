@@ -10,7 +10,7 @@
         <div class="card text-white bg-primary mb-3">
             <div class="card-body">
                 <h5 class="card-title">Total Devices</h5>
-                <p class="card-text display-4">{{ stats.phones_count }}</p>
+                <p class="card-text display-4">{{ stats.total }}</p>
             </div>
         </div>
     </div>
@@ -18,7 +18,7 @@
         <div class="card text-white bg-success mb-3">
             <div class="card-body">
                 <h5 class="card-title">Online</h5>
-                <p class="card-text display-4">{{ stats.online_count | default(0) }}</p>
+                <p class="card-text display-4">{{ stats.online | default(0) }}</p>
             </div>
         </div>
     </div>
@@ -26,7 +26,7 @@
         <div class="card text-white bg-secondary mb-3">
             <div class="card-body">
                 <h5 class="card-title">Offline / DND</h5>
-                <p class="card-text display-4">{{ stats.offline_count | default(0) }}</p>
+                <p class="card-text display-4">{{ stats.offline + stats.dnd | default(0) }}</p>
             </div>
         </div>
     </div>

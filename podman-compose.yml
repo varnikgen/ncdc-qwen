@@ -8,11 +8,15 @@ services:
       - "8000"
     volumes:
       - ./data:/app/data
-    environment:
-      - DATABASE_URL=sqlite:///./data/ncdc.db
-      - HOST=0.0.0.0
-      - PORT=8000
-      - PROVISIONING_BASE_URL=https://ncdc-dev.bsmuk.ru/provision/
+    # environment:
+    #   - DATABASE_URL=sqlite:///./data/ncdc.db
+    #   - HOST=0.0.0.0
+    #   - PORT=8000
+    #   - PROVISIONING_BASE_URL=https://ncdc-dev.bsmuk.ru/provision/
+    #   - NCDC_ADMIN_USER=admin
+    #   - NCDC_ADMIN_PASS=***REMOVED***
+    env_file:
+      - .env
     restart: unless-stopped
     networks:
       - ncdc-network

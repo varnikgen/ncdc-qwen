@@ -2,80 +2,32 @@
 ##File header "#!version:1.0.0.1" can not be edited or deleted.##
 
 #######################################################################################
-##                                    Network                                        ##
+##                        GLOBAL / MODEL / CUSTOM SETTINGS                           ##
 #######################################################################################
-# Явно указываем IPv4 + DHCP
-static.network.ip_address_mode = {{ config.get('static.network.ip_address_mode', 1) }}
-static.network.ipv6_enable = {{ config.get('static.network.ipv6_enable', 0) }}
-
-# Безопасный режим по умолчанию
-{% if config.get('static_network_ip') %}
-static.network.internet_port.ip = {{ config.static_network_ip }}
-static.network.internet_port.mask = {{ config.get('static_network_mask', '255.255.255.0') }}
-static.network.internet_port.gateway = {{ config.static_network_gateway }}
-{% endif %}
-
-# DNS
-{% if config.get('dns_server_primary') %}
-static.network.static_dns_enable = 1
-static.network.primary_dns = {{ config.dns_server_primary }}
-{% if config.get('dns_server_secondary') %}
-static.network.secondary_dns = {{ config.dns_server_secondary }}
-{% endif %}
-{% else %}
-static.network.static_dns_enable = 0
-{% endif %}
-
-# VLAN
-{% if config.get('yealink_vlan_id') %}
-static.network.vlan.internet_port_enable = 1
-static.network.vlan.internet_port_vid = {{ config.yealink_vlan_id }}
-static.network.vlan.internet_port_priority = {{ config.get('yealink_vlan_cos', 0) }}
-{% else %}
-static.network.vlan.internet_port_enable = 0
-{% endif %}
-
-#######################################################################################
-##                                   LDAP                                            ##
-#######################################################################################
-{% if config.get('ldap_enable') %}
-ldap.enable = 1
-ldap.host = {{ config.ldap_host }}
-ldap.base = {{ config.ldap_base }}
-ldap.user = {{ config.ldap_user }}
-ldap.password = {{ config.ldap_password }}
-ldap.name_filter = {{ config.get('ldap_name_filter', '') }}
-ldap.number_filter = {{ config.get('ldap_number_filter', '') }}
-ldap.display_name = {{ config.get('ldap_display_name', '%cn %sn') }}
-{% else %}
-ldap.enable = 0
-{% endif %}
-
-#######################################################################################
-##                                   Time&Date                                       ##
-#######################################################################################
-local_time.time_zone = {{ config.get('local_time.time_zone', '+10') }}
-local_time.dhcp_time = {{ config.get('local_time.dhcp_time', 1) }}
-local_time.summer_time = {{ config.get('local_time.summer_time', 0) }}
-local_time.date_format = {{ config.get('local_time.date_format', 5) }}
-
-#######################################################################################
-##                                   Autop URL                                       ##
-#######################################################################################
-static.auto_provision.server.url = {{ config.get('static.auto_provision.server.url', 'https://ncdc.bsmuk.ru/yealink/') }}
-static.auto_provision.power_on = {{ config.get('static.auto_provision.power_on', 1) }}
-static.auto_provision.repeat.minutes = {{ config.get('static.auto_provision.repeat.minutes', 1) }}
-
-#######################################################################################
-##                          Action URL&URI                                           ##
-#######################################################################################
-{% if config.get('features.action_uri_limit_ip') %}
-features.action_uri_limit_ip = {{ config['features.action_uri_limit_ip'] }}
-{% endif %}
-
-#######################################################################################
-##                        Дополнительные параметры (Key-Value)                       ##
-#######################################################################################
-{% for key, value in config.get('extra_global_settings', {}).items() %}
+{% for key, value in config.items() %}
+    {% if key not in ['accounts', 'dss_keys', 'phone', 'model'] and value is not none %}
+        {% if value is boolean %}
+{{ key }} = {{ 1 if value else 0 }}
+        {% else %}
 {{ key }} = {{ value }}
+        {% endif %}
+    {% endif %}
 {% endfor %}
+
+#######################################################################################
+##                        Action URL Configuration                                   ##
+#######################################################################################
+action_url.enable = {{ 1 if config.get('action_url.enable') else 0 }}
+action_url.limit_ip = {{ config.get('action_url.limit_ip', '10.30.30.30') }}
+action_url.registered = {{ config.get('action_url.registered', '') }}
+action_url.unregistered = {{ config.get('action_url.unregistered', '') }}
+action_url.registration_failed = {{ config.get('action_url.registration_failed', '') }}
+action_url.off_hook = {{ config.get('action_url.off_hook', '') }}
+action_url.on_hook = {{ config.get('action_url.on_hook', '') }}
+action_url.incoming_call = {{ config.get('action_url.incoming_call', '') }}
+action_url.outgoing_call = {{ config.get('action_url.outgoing_call', '') }}
+action_url.call_established = {{ config.get('action_url.call_established', '') }}
+action_url.call_missed = {{ config.get('action_url.call_missed', '') }}
+action_url.dnd_on = {{ config.get('action_url.dnd_on', '') }}
+action_url.dnd_off = {{ config.get('action_url.dnd_off', '') }}
+action_url.setup_complete = {{ config.get('action_url.setup_complete', '') }}

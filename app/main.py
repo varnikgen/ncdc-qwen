@@ -11,8 +11,11 @@ from app.routers import provisioning, actions, phones, accounts, settings as set
 from app.database import engine, Base
 
 # Импортируем задачу очистки
-from app.services.audit_cleanup import cleanup_audit_logs_task
+from app.services.audit_cleanup import background_tasks
 import asyncio
+
+# Импортируем middleware
+from app.middleware.auth import basic_auth_middleware
 
 # Создаем таблицы в БД при старте
 Base.metadata.create_all(bind=engine)
@@ -27,6 +30,9 @@ app = FastAPI(
 templates = Jinja2Templates(directory="app/templates")
 app.state.templates = templates
 
+# Подключаем middleware
+app.middleware("http")(basic_auth_middleware)
+
 # Подключаем роутеры (обратите внимание на settings_router)
 app.include_router(provisioning.router)
 app.include_router(actions.router)
@@ -36,29 +42,34 @@ app.include_router(settings_router.router)
 app.include_router(models_router.router)
 app.include_router(audit_router.router)
 
+
 @app.on_event("startup")
 async def startup_event():
     # Запускаем задачу очистки в фоне, не блокируя основной сервер
-    asyncio.create_task(cleanup_audit_logs_task())
+    asyncio.create_task(background_tasks())
 
 @app.get("/")
 async def dashboard(request: Request):
-    # Заглушка для Dashboard
     from app.models import Phone
     from app.database import get_db
-    from sqlalchemy.orm import Session
     
     db = next(get_db())
-    total = db.query(Phone).count()
-    online = db.query(Phone).filter(Phone.status.ilike("online")).count()
-    offline = db.query(Phone).filter(Phone.status.in_(["offline", "unregistered"])).count()
     
-    return templates.TemplateResponse("dashboard.html", {
+    # Корректный подсчет по реальным статусам
+    total = db.query(Phone).count()
+    online = db.query(Phone).filter(Phone.status == "online").count()
+    dnd = db.query(Phone).filter(Phone.status == "dnd").count()
+    offline = db.query(Phone).filter(Phone.status == "offline").count()
+    unregistered = db.query(Phone).filter(Phone.status == "unregistered").count()
+    
+    return request.app.state.templates.TemplateResponse("dashboard.html", {
         "request": request, 
         "stats": {
-            "phones_count": total,
-            "online_count": online,
-            "offline_count": offline
+            "total": total,
+            "online": online,
+            "dnd": dnd,
+            "offline": offline,
+            "unregistered": unregistered
         }
     })
 
