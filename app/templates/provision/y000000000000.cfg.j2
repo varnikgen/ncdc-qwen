@@ -5,13 +5,9 @@
 ##                        GLOBAL / MODEL / CUSTOM SETTINGS                           ##
 #######################################################################################
 {% for key, value in config.items() %}
-    {% if key not in ['accounts', 'dss_keys', 'phone', 'model'] and value is not none %}
-        {% if value is boolean %}
-{{ key }} = {{ 1 if value else 0 }}
-        {% else %}
+{% if key not in ['accounts', 'dss_keys', 'phone', 'model'] and value is not none and not key.startswith('action_url.') %}
 {{ key }} = {{ value }}
-        {% endif %}
-    {% endif %}
+{% endif %}
 {% endfor %}
 
 #######################################################################################

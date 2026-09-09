@@ -4,35 +4,11 @@
 #######################################################################################
 ##                        GLOBAL / MODEL / CUSTOM SETTINGS                           ##
 #######################################################################################
-{# Рендерим все настройки, которые НЕ являются служебными объектами (accounts, dss_keys, phone, model) #}
 {% for key, value in config.items() %}
-    {% if key not in ['accounts', 'dss_keys', 'phone', 'model'] and value is not none %}
-        {% if value is boolean %}
-            {# Преобразуем Python True/False в 1/0 для Yealink #}
-            {{ key }} = {{ 1 if value else 0 }}
-        {% else %}
-            {{ key }} = {{ value }}
-        {% endif %}
-    {% endif %}
+{% if key not in ['accounts', 'dss_keys', 'phone', 'model'] and value is not none and not key.startswith('action_url.') %}
+{{ key }} = {{ value }}
+{% endif %}
 {% endfor %}
-
-#######################################################################################
-##                        Action URL Configuration                                   ##
-#######################################################################################
-action_url.enable = {{ 1 if config.get('action_url.enable') else 0 }}
-action_url.limit_ip = {{ config.get('action_url.limit_ip', '10.30.30.30') }}
-action_url.registered = {{ config.get('action_url.registered', '') }}
-action_url.unregistered = {{ config.get('action_url.unregistered', '') }}
-action_url.registration_failed = {{ config.get('action_url.registration_failed', '') }}
-action_url.off_hook = {{ config.get('action_url.off_hook', '') }}
-action_url.on_hook = {{ config.get('action_url.on_hook', '') }}
-action_url.incoming_call = {{ config.get('action_url.incoming_call', '') }}
-action_url.outgoing_call = {{ config.get('action_url.outgoing_call', '') }}
-action_url.call_established = {{ config.get('action_url.call_established', '') }}
-action_url.call_missed = {{ config.get('action_url.call_missed', '') }}
-action_url.dnd_on = {{ config.get('action_url.dnd_on', '') }}
-action_url.dnd_off = {{ config.get('action_url.dnd_off', '') }}
-action_url.setup_complete = {{ config.get('action_url.setup_complete', '') }}
 
 #######################################################################################
 ##                        ACCOUNTS CONFIGURATION                                     ##
@@ -69,21 +45,9 @@ linekey.{{ key.line }}.line = 0
 {% else %}
 linekey.{{ key.line }}.enable = 1
 linekey.{{ key.line }}.type = {{ key.type }}
-{% if key.value %}
-linekey.{{ key.line }}.value = {{ key.value }}
-{% else %}
-linekey.{{ key.line }}.value = ""
-{% endif %}
-{% if key.extension %}
-linekey.{{ key.line }}.extension = {{ key.extension }}
-{% else %}
-linekey.{{ key.line }}.extension = ""
-{% endif %}
-{% if key.label %}
-linekey.{{ key.line }}.label = {{ key.label }}
-{% else %}
-linekey.{{ key.line }}.label = ""
-{% endif %}
+linekey.{{ key.line }}.value = "{{ key.value | default('') }}"
+linekey.{{ key.line }}.extension = "{{ key.extension | default('') }}"
+linekey.{{ key.line }}.label = "{{ key.label | default('') }}"
 {% if key.type == 13 %}
 linekey.{{ key.line }}.line = {{ key.account | default(0) }}
 {% elif key.type == 15 %}
