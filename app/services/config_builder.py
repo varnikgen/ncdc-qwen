@@ -16,13 +16,6 @@ def build_phone_config(db, mac: str) -> dict:
     # 2. Загружаем глобальные настройки
     global_cfg = db.query(GlobalConfig).first()
     global_settings = global_cfg.settings if global_cfg and global_cfg.settings else {}
-
-     # === ОТЛАДКА ===
-    print(f"\n[DEBUG] Global settings count: {len(global_settings)}")
-    action_url_keys = [k for k in global_settings.keys() if 'action_url' in k]
-    print(f"[DEBUG] Action URL keys found: {action_url_keys}")
-    print(f"[DEBUG] action_url.registered.url = {global_settings.get('action_url.registered.url')}")
-    # ===============
     
     # 3. Загружаем настройки модели
     model = db.query(PhoneModel).filter(PhoneModel.name == phone.model_name).first()
@@ -31,16 +24,18 @@ def build_phone_config(db, mac: str) -> dict:
     # 4. Загружаем настройки телефона
     phone_settings = phone.custom_config if phone.custom_config else {}
     
-    # 5. СЛИЯНИЕ (Merge) с приоритетом: Phone > Model > Global
-    # Используем простой цикл для плоского слияния нативных ключей
-    final_config = {}
-    final_config.update(global_settings)
-    final_config.update(model_settings)
-    final_config.update(phone_settings)
+    # 5. СТРУКТУРИРОВАННЫЙ СЛОВАРЬ (БЕЗ СЛИЯНИЯ!)
+    final_config = {
+        "global": global_settings,
+        "model": model_settings,
+        "phone": phone_settings,
+    }
     
-    # 6. Добавляем специфичные сущности, которые нужны для рендера (аккаунты, DSS)
-    final_config["phone"] = phone
-    final_config["model"] = model
+    # 6. Добавляем специфичные сущности (ваш существующий код)
+    final_config["phone_info"] = {
+        "mac": phone.mac,
+        "model": phone.model_name
+    }
     
     # Обработка аккаунтов
     accounts_data = []

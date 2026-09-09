@@ -2,13 +2,13 @@
 ##File header "#!version:1.0.0.1" can not be edited or deleted.##
 
 #######################################################################################
-##                        GLOBAL / MODEL / CUSTOM SETTINGS                           ##
+##                        PHONE SPECIFIC OVERRIDES                                   ##
 #######################################################################################
-{% for key, value in config.items() %}
-{% if key not in ['accounts', 'dss_keys', 'phone', 'model'] and value is not none and not key.startswith('action_url.') %}
+{% for key, value in config.phone.items() %}
+{%- if value is not none %}
 {{ key }} = {{ value }}
 {% endif %}
-{% endfor %}
+{%- endfor %}
 
 #######################################################################################
 ##                        ACCOUNTS CONFIGURATION                                     ##
@@ -35,24 +35,24 @@ account.{{ acc.index }}.codec.2.priority = 2
 ##                        DSS Keys (Line Keys)                                       ##
 #######################################################################################
 {% for key in config.dss_keys %}
-{% if key.type == 0 %}
+{%- if key.type == 0 %}
 linekey.{{ key.line }}.enable = 0
 linekey.{{ key.line }}.type = 0
 linekey.{{ key.line }}.value = ""
 linekey.{{ key.line }}.extension = ""
 linekey.{{ key.line }}.label = ""
 linekey.{{ key.line }}.line = 0
-{% else %}
+{%- else %}
 linekey.{{ key.line }}.enable = 1
 linekey.{{ key.line }}.type = {{ key.type }}
 linekey.{{ key.line }}.value = "{{ key.value | default('') }}"
 linekey.{{ key.line }}.extension = "{{ key.extension | default('') }}"
 linekey.{{ key.line }}.label = "{{ key.label | default('') }}"
-{% if key.type == 13 %}
+{%- if key.type == 13 %}
 linekey.{{ key.line }}.line = {{ key.account | default(0) }}
-{% elif key.type == 15 %}
+{%- elif key.type == 15 %}
 linekey.{{ key.line }}.line = {{ key.account | default(1) }}
-{% elif key.type == 16 %}
+{%- elif key.type == 16 %}
 linekey.{{ key.line }}.line = {{ key.account | default(1) }}
 {% endif %}
 {% endif %}

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Response, Depends, HTTPException
+from fastapi import APIRouter, Response, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from jinja2 import Environment, FileSystemLoader
 import os
@@ -28,12 +28,24 @@ include:config "$MAC.cfg"
     return Response(content=boot_content, media_type="text/plain")
 
 @router.get("/y000000000000.cfg")
-async def get_global_config(db: Session = Depends(get_db)):
+async def get_global_config(request: Request, db: Session = Depends(get_db)):
+    """Генерация глобального конфигурационного файла"""
     global_cfg = db.query(GlobalConfig).first()
-    config = global_cfg.settings.copy() if global_cfg and global_cfg.settings else {}
-    template = jinja_env.get_template("y000000000000.cfg.j2")
-    rendered = template.render(config=config)
-    return Response(content=rendered, media_type="text/plain")
+    settings = global_cfg.settings if global_cfg and global_cfg.settings else {}
+    
+    # Оборачиваем настройки в структуру, ожидаемую шаблоном
+    config_data = {
+        "global": settings
+    }
+    
+    return request.app.state.templates.TemplateResponse(
+        "provision/y000000000000.cfg.j2",
+        {
+            "request": request,
+            "config": config_data
+        },
+        media_type="text/plain"
+    )
 
 # ЕДИНЫЙ маршрут для всех .cfg файлов с явной проверкой
 @router.get("/{identifier}.cfg")
