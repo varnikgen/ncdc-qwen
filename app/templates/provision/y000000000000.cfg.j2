@@ -1,0 +1,27 @@
+{# Action URL без кавычек: Yealink подставляет $mac в голый URL.
+   Не пишем пустые значения — `features.action_uri_limit_ip =` на части
+   прошивок значит «никому нельзя», и AutoP с сервера отваливается. #}
+#!version:1.0.0.1
+##File header "#!version:1.0.0.1" can not be edited or deleted.##
+
+#######################################################################################
+##                        GLOBAL SETTINGS                                            ##
+#######################################################################################
+{% for key, value in config.global.items() %}
+{% if value is not none and value != '' and not key.startswith('action_url.') %}
+{{ key }} = {{ value | cfg }}
+{% endif %}
+{% endfor %}
+
+#######################################################################################
+##                        Action URL Configuration                                   ##
+#######################################################################################
+action_url.enable = {{ 1 if config.global.get('action_url.enable') else 0 }}
+{% if config.global.get('action_url.limit_ip') %}
+action_url.limit_ip = {{ config.global.get('action_url.limit_ip') | cfg }}
+{% endif %}
+{% for key, value in config.global.items() %}
+{% if key.startswith('action_url.') and key not in ['action_url.enable', 'action_url.limit_ip'] and value %}
+{{ key }} = {{ value }}
+{% endif %}
+{% endfor %}

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Phone Models - NCDC{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-phone"></i> Phone Models</h2>
+    <a href="/models/new" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> Add Model
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Model Name</th>
+                        <th>Firmware URL</th>
+                        <th>802.1x</th>
+                        <th>Max Accounts</th>
+                        <th>Max DSS Keys</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for model in models %}
+                    <tr>
+                        <td class="fw-bold">{{ model.name }}</td>
+                        <td class="text-truncate" style="max-width: 200px;" title="{{ model.firmware_url }}">
+                            {{ model.firmware_url or '-' }}
+                        </td>
+                        <td>
+                            {% if model.ieee802_1x_enable %}
+                                <span class="badge bg-success">Enabled (Mode {{ model.ieee802_1x_mode }})</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Disabled</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ model.max_accounts }}</td>
+                        <td>{{ model.max_dss_keys }}</td>
+                        <td>
+                            <a href="/models/{{ model.id }}/edit" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-pencil"></i> Edit
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">No models configured yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,49 @@
+# ncdc слушает только внутри сети (expose 8000).
+# Наружу торчит nginx :80/:443. .env обязателен — без него compose упадёт,
+# и это лучше, чем старт с пустым паролем.
+
+version: "3.8"
+
+services:
+  ncdc:
+    build: .
+    container_name: ncdc-app
+    expose:
+      - "8000"
+    volumes:
+      - ./data:/app/data
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ncdc-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: ncdc-nginx
+    ports:
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - ncdc
+    restart: unless-stopped
+    networks:
+      - ncdc-network
+
+networks:
+  ncdc-network:
+    driver: bridge

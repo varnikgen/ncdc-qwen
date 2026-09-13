@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project Specific
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/*.log
+.env
+.env.local
+*.cfg
+*.boot
+
+# ==========================================
+# SSL Certificates and Private Keys
+# ==========================================
+*.crt
+*.pem
+*.key
+*.cer
+*.p12
+*.pfx
+*.der
+
+# Игнорируем всю папку с SSL для Nginx, если она существует
+nginx/ssl/
+nginx/ssl/*
+!nginx/ssl/.gitkeep  # (опционально) если вы хотите оставить саму папку в git, но не её содержимое
+
+# Игнорируем любые временные файлы сертификатов
+*.cert
+*.csr

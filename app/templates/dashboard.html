@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - NCDC{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Dashboard</h2>
+
+<div class="row">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Total Devices</h5>
+                <p class="card-text display-4">{{ stats.total }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Online</h5>
+                <p class="card-text display-4">{{ stats.online | default(0) }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning mb-3">
+            <div class="card-body">
+                <h5 class="card-title">DND</h5>
+                <p class="card-text display-4">{{ stats.dnd | default(0) }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-secondary mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Offline / Unreg</h5>
+                <p class="card-text display-4">{{ (stats.offline or 0) + (stats.unregistered or 0) }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="alert alert-info">
+    <i class="bi bi-info-circle me-2"></i>
+    Провижининг, Action URL и AutoP push активны. Неизвестные MAC {% if stats.total == 0 %}появятся автоматически при первом обращении телефона.{% else %}регистрируются через Device List или авто-enroll.{% endif %}
+</div>
+{% endblock %}

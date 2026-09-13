@@ -1,0 +1,40 @@
+{# 802.1x: обязательно enable=1/0. Без этой строки identity/certs бесполезны. #}
+#!version:1.0.0.1
+##File header "#!version:1.0.0.1" can not be edited or deleted.##
+
+#######################################################################################
+##                           Firmware Update                                         ##
+#######################################################################################
+{% if config.get('model_firmware_url') %}
+firmware.url = {{ config.model_firmware_url | cfg }}
+{% endif %}
+
+#######################################################################################
+##                           802.1x Authentication                                   ##
+#######################################################################################
+{% if config.get('model_802_1x_enable') %}
+static.network.802_1x.enable = 1
+static.network.802_1x.identity = {{ config.model_802_1x_identity | cfg }}
+static.network.802_1x.mode = {{ config.model_802_1x_mode }}
+{% if config.get('model_802_1x_mode') in [2, '2'] and config.get('model_802_1x_md5_password') %}
+static.network.802_1x.md5_password = {{ config.model_802_1x_md5_password | cfg }}
+{% endif %}
+features.network.8021x_upload.mode = {{ config.get('model_802_1x_upload_mode', 0) }}
+{% if config.get('model_802_1x_root_cert_url') %}
+static.network.802_1x.root_cert_url = {{ config.model_802_1x_root_cert_url | cfg }}
+{% endif %}
+{% if config.get('model_802_1x_client_cert_url') %}
+static.network.802_1x.client_cert_url = {{ config.model_802_1x_client_cert_url | cfg }}
+{% endif %}
+{% else %}
+static.network.802_1x.enable = 0
+{% endif %}
+
+#######################################################################################
+##                        Model-Specific Settings                                    ##
+#######################################################################################
+{% for key, value in config.get('model_default_config', {}).items() %}
+{% if value is not none %}
+{{ key }} = {{ value | cfg }}
+{% endif %}
+{% endfor %}

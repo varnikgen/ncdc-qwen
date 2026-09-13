@@ -1,0 +1,123 @@
+"""Точка входа FastAPI: lifespan, middleware, роутеры, дашборд."""
+
+import asyncio
+import logging
+import os
+from contextlib import asynccontextmanager
+
+from fastapi import Depends, FastAPI, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
+
+from app.config import settings
+from app.database import Base, SessionLocal, engine, get_db, run_migrations
+from app.defaults import seed_global_config
+from app.middleware.auth import basic_auth_middleware
+from app.middleware.csrf import csrf_middleware
+from app.models import Phone
+from app.routers import (
+    accounts,
+    actions,
+    audit as audit_router,
+    dashboard as dashboard_router,
+    models as models_router,
+    phones,
+    provisioning,
+    settings as settings_router,
+)
+from app.services.audit_cleanup import background_tasks
+
+logging.basicConfig(
+    level=logging.DEBUG if settings.DEBUG else logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+logger = logging.getLogger("ncdc")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Не поднимаемся с пустым/слитым паролем — лучше явный crash, чем открытая админка
+    errors = settings.validate_security()
+    if errors:
+        for err in errors:
+            logger.error("Startup config error: %s", err)
+        raise RuntimeError("Refusing to start: " + " | ".join(errors))
+
+    os.makedirs("data", exist_ok=True)
+    Base.metadata.create_all(bind=engine)
+    run_migrations()
+    db = SessionLocal()
+    try:
+        seed_global_config(db)
+    finally:
+        db.close()
+
+    task = asyncio.create_task(background_tasks())
+    logger.info("%s v%s started", settings.APP_NAME, settings.APP_VERSION)
+    try:
+        yield
+    finally:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    description="Yealink Auto-Provisioning Service",
+    lifespan=lifespan,
+)
+
+# HTML-шаблоны админки (с autoescape). Cfg-файлы рендерятся через app.provision_templates.
+templates = Jinja2Templates(directory="app/templates")
+app.state.templates = templates
+
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+os.makedirs(static_dir, exist_ok=True)
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+# Последний add_middleware выполняется первым. Сначала Basic Auth, потом CSRF:
+# неавторизованный POST не должен получать осмысленный CSRF-ответ.
+app.middleware("http")(csrf_middleware)
+app.middleware("http")(basic_auth_middleware)
+
+app.include_router(provisioning.router)
+app.include_router(actions.router)
+app.include_router(phones.router)
+app.include_router(accounts.router)
+app.include_router(settings_router.router)
+app.include_router(models_router.router)
+app.include_router(audit_router.router)
+app.include_router(dashboard_router.router)
+
+
+@app.get("/")
+async def dashboard(request: Request, db: Session = Depends(get_db)):
+    total = db.query(Phone).count()
+    online = db.query(Phone).filter(Phone.status == "online").count()
+    dnd = db.query(Phone).filter(Phone.status == "dnd").count()
+    offline = db.query(Phone).filter(Phone.status == "offline").count()
+    unregistered = db.query(Phone).filter(Phone.status == "unregistered").count()
+    return request.app.state.templates.TemplateResponse(
+        "dashboard.html",
+        {
+            "request": request,
+            "stats": {
+                "total": total,
+                "online": online,
+                "dnd": dnd,
+                "offline": offline,
+                "unregistered": unregistered,
+            },
+        },
+    )
+
+
+@app.get("/health")
+async def health_check():
+    """Открытый эндпоинт для compose healthcheck. Без секретов."""
+    return {"status": "healthy", "version": settings.APP_VERSION}

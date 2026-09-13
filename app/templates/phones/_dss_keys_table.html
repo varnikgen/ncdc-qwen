@@ -1,0 +1,46 @@
+<div class="table-responsive">
+    <table class="table table-sm table-bordered" id="dssKeysTable">
+        <thead class="table-light">
+            <tr>
+                <th style="width: 80px;">Line</th>
+                <th style="width: 130px;">Type</th>
+                <th style="width: 150px;">Account</th>
+                <th>Value</th>
+                <th>Extension</th>
+                <th>Label</th>
+                <th style="width: 60px;">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for key in current_dss %}
+            <tr data-index="{{ loop.index0 }}">
+                <td><input type="number" name="dss_line_{{ loop.index0 }}" class="form-control form-control-sm dss-line" value="{{ key.line }}" min="1" max="27"></td>
+                <td>
+                    <select name="dss_type_{{ loop.index0 }}" class="form-select form-select-sm dss-type" onchange="updateAccountColumn(this)">
+                        <option value="0" {% if key.type == 0 %}selected{% endif %}>N/A</option>
+                        <option value="15" {% if key.type == 15 %}selected{% endif %}>Account</option>
+                        <option value="13" {% if key.type == 13 %}selected{% endif %}>Speed Dial</option>
+                        <option value="16" {% if key.type == 16 %}selected{% endif %}>BLF</option>
+                    </select>
+                </td>
+                <td>
+                    <select name="dss_account_{{ loop.index0 }}" class="form-select form-select-sm dss-account" 
+                            data-value="{{ key.account | default(1) }}">
+                        <!-- Опции заполняются через JS -->
+                    </select>
+                </td>
+                <td><input type="text" name="dss_value_{{ loop.index0 }}" class="form-control form-control-sm dss-value" value="{{ key.value }}"></td>
+                <td><input type="text" name="dss_extension_{{ loop.index0 }}" class="form-control form-control-sm dss-extension" value="{{ key.extension }}"></td>
+                <td><input type="text" name="dss_label_{{ loop.index0 }}" class="form-control form-control-sm dss-label" value="{{ key.label }}"></td>
+                <td><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <button type="button" class="btn btn-outline-primary btn-sm" onclick="addDssKey()">
+        <i class="bi bi-plus"></i> Add DSS Key
+    </button>
+</div>
+
+<input type="hidden" name="custom_dss_keys" id="dssKeysJson" value='{{ current_dss | tojson }}'>
+<input type="hidden" id="phoneAccountCount" value="{{ phone_account_count }}">

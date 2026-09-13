@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}{% if account %}Edit Account - {{ account.name }}{% else %}New Account{% endif %} - NCDC{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>{% if account %}Edit Account: {{ account.name }}{% else %}New Account{% endif %}</h2>
+    <a href="/accounts" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to List
+    </a>
+</div>
+
+<form id="accountForm" method="post" action="{% if account %}/accounts/{{ account.id }}/update{% else %}/accounts/{% endif %}">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header"><i class="bi bi-person-badge"></i> Account Information</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Account Name <span class="text-danger">*</span></label>
+                        <input type="text" name="name" class="form-control"
+                               value="{{ account.name if account else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Display Name</label>
+                        <input type="text" name="display_name" class="form-control"
+                               value="{{ account.display_name if account else '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Username (Extension) <span class="text-danger">*</span></label>
+                        <input type="text" name="username" class="form-control"
+                               value="{{ account.username if account else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password {% if not account %}<span class="text-danger">*</span>{% endif %}</label>
+                        <input type="password" name="password" class="form-control" autocomplete="new-password"
+                               placeholder="{% if account %}Leave blank to keep current password{% endif %}"
+                               {% if not account %}required{% endif %}>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header"><i class="bi bi-hdd-network"></i> SIP Server Settings</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">SIP Server Address <span class="text-danger">*</span></label>
+                        <input type="text" name="sip_server" class="form-control"
+                               value="{{ account.sip_server if account else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">SIP Port</label>
+                        <input type="number" name="sip_port" class="form-control"
+                               value="{{ account.sip_port if account else 5060 }}" min="1" max="65535">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Transport Protocol</label>
+                        <select name="transport" class="form-select">
+                            <option value="udp" {% if account and account.transport == 'udp' %}selected{% endif %}>UDP</option>
+                            <option value="tcp" {% if account and account.transport == 'tcp' %}selected{% endif %}>TCP</option>
+                            <option value="tls" {% if account and account.transport == 'tls' %}selected{% endif %}>TLS</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="bi bi-key"></i> Default DSS Keys
+            <small class="text-muted ms-2">(inherited by phones using this account)</small>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered" id="dssKeysTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Line</th>
+                            <th>Type</th>
+                            <th>Account</th>
+                            <th>Value</th>
+                            <th>Extension</th>
+                            <th>Label</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for key in dss_keys %}
+                        <tr>
+                            <td><input type="number" class="form-control form-control-sm dss-line" value="{{ key.line }}" min="1" max="60"></td>
+                            <td>
+                                <select class="form-select form-select-sm dss-type">
+                                    <option value="15" {% if key.type == 15 %}selected{% endif %}>Account</option>
+                                    <option value="16" {% if key.type == 16 %}selected{% endif %}>BLF</option>
+                                    <option value="13" {% if key.type == 13 %}selected{% endif %}>Speed Dial</option>
+                                    <option value="17" {% if key.type == 17 %}selected{% endif %}>DTMF</option>
+                                    <option value="22" {% if key.type == 22 %}selected{% endif %}>URL</option>
+                                    <option value="0" {% if key.type == 0 %}selected{% endif %}>N/A</option>
+                                </select>
+                            </td>
+                            <td>
+                                <input type="number" class="form-control form-control-sm dss-account" min="0" max="16" value="{{ key.account | default(1) }}" title="Номер линии на трубке (account.N)">
+                            </td>
+                            <td><input type="text" class="form-control form-control-sm dss-value" value="{{ key.value }}"></td>
+                            <td><input type="text" class="form-control form-control-sm dss-extension" value="{{ key.extension }}"></td>
+                            <td><input type="text" class="form-control form-control-sm dss-label" value="{{ key.label }}"></td>
+                            <td><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="addDssKey()">
+                    <i class="bi bi-plus"></i> Add DSS Key
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+        <a class="btn btn-outline-secondary" href="/accounts">Cancel</a>
+        {% if account %}
+        <button type="button" class="btn btn-outline-danger" onclick="deleteAccount()">
+            <i class="bi bi-trash"></i> Delete
+        </button>
+        {% endif %}
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-save"></i> Save Account
+        </button>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function addDssKey() {
+    const tbody = document.getElementById('dssKeysTable').tBodies[0];
+    const index = tbody.rows.length;
+    const row = tbody.insertRow();
+    row.innerHTML = `
+        <td><input type="number" class="form-control form-control-sm dss-line" value="${index + 1}" min="1" max="60"></td>
+        <td>
+            <select class="form-select form-select-sm dss-type">
+                <option value="15" selected>Account</option>
+                <option value="16">BLF</option>
+                <option value="13">Speed Dial</option>
+                <option value="17">DTMF</option>
+                <option value="22">URL</option>
+                <option value="0">N/A</option>
+            </select>
+        </td>
+        <td><input type="number" class="form-control form-control-sm dss-account" min="0" max="16" value="1"></td>
+        <td><input type="text" class="form-control form-control-sm dss-value"></td>
+        <td><input type="text" class="form-control form-control-sm dss-extension"></td>
+        <td><input type="text" class="form-control form-control-sm dss-label"></td>
+        <td><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>`;
+}
+
+{% if account %}
+function deleteAccount() {
+    if (!confirm('Delete this account? It will be detached from phones.')) return;
+    fetch('/accounts/{{ account.id }}/delete', { method: 'POST' })
+        .then(r => r.json().then(data => ({ ok: r.ok, data })))
+        .then(({ ok, data }) => {
+            if (ok && data.status === 'success') window.location.href = '/accounts';
+            else alert('Error: ' + (data.detail || 'failed'));
+        });
+}
+{% endif %}
+
+document.getElementById('accountForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const dssKeys = [];
+    document.querySelectorAll('#dssKeysTable tbody tr').forEach((row, index) => {
+        dssKeys.push({
+            line: parseInt(row.querySelector('.dss-line')?.value || (index + 1)),
+            type: parseInt(row.querySelector('.dss-type')?.value || 15),
+            account: parseInt(row.querySelector('.dss-account')?.value || 1),
+            value: row.querySelector('.dss-value')?.value || '',
+            extension: row.querySelector('.dss-extension')?.value || '',
+            label: row.querySelector('.dss-label')?.value || ''
+        });
+    });
+    const formData = new FormData(this);
+    formData.set('dss_keys', JSON.stringify(dssKeys));
+    try {
+        const response = await fetch(this.action, { method: 'POST', body: formData });
+        const result = await response.json();
+        if (response.ok) {
+            window.location.href = result.redirect || '/accounts';
+        } else {
+            alert('Error: ' + (result.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        alert('Network error: ' + error.message);
+    }
+});
+</script>
+{% endblock %}

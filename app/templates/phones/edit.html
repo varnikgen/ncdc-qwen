@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+
+{% block title %}{% if phone %}Edit Phone - {{ phone.mac }}{% else %}New Phone{% endif %} - NCDC{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>{% if phone %}Edit Phone: {{ phone.mac }}{% else %}Add Device{% endif %}</h2>
+    <a href="/phones" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to List
+    </a>
+</div>
+
+<form id="phoneForm" method="post" action="{% if phone %}/phones/{{ phone.id }}/update{% else %}/phones/{% endif %}">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header"><i class="bi bi-phone"></i> Basic Information</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">MAC Address</label>
+                        {% if phone %}
+                        <input type="text" class="form-control" value="{{ phone.mac }}" disabled>
+                        {% else %}
+                        <input type="text" name="mac" class="form-control" placeholder="001565C18725" required maxlength="17" pattern="[0-9A-Fa-f:.\-]{12,17}">
+                        <div class="form-text">12 hex characters, separators optional</div>
+                        {% endif %}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Model</label>
+                        <select name="model_name" class="form-select">
+                            <option value="">Select Model...</option>
+                            {% for model in models %}
+                            <option value="{{ model.name }}" {% if phone and phone.model_name == model.name %}selected{% endif %}>
+                                {{ model.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">IP Address</label>
+                        <input type="text" name="ip_address" class="form-control"
+                               value="{{ phone.ip_address if phone and phone.ip_address else '' }}"
+                               placeholder="Filled automatically from Action URL">
+                    </div>
+                    {% if phone %}
+                    <div class="mb-3">
+                        <label class="form-label">Status</label>
+                        <input type="text" class="form-control" value="{{ phone.status }}" disabled>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card mb-4">
+                <div class="card-header"><i class="bi bi-shield-lock"></i> Phone Web UI (AutoP)</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Admin Username</label>
+                        <input type="text" name="admin_username" class="form-control"
+                               value="{{ phone.admin_username if phone else 'admin' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Admin Password</label>
+                        <input type="password" name="admin_password" class="form-control" autocomplete="new-password"
+                               placeholder="{% if phone %}Leave blank to keep current{% else %}admin{% endif %}">
+                        <div class="form-text">Used only for AutoP push to the phone. Not written into the cfg.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header"><i class="bi bi-person-badge"></i> SIP Accounts</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Primary Account</label>
+                        <select name="primary_account_id" class="form-select">
+                            <option value="">None</option>
+                            {% for acc in accounts %}
+                            <option value="{{ acc.id }}" {% if phone and phone.primary_account_id == acc.id %}selected{% endif %}>
+                                {{ acc.name }} ({{ acc.username }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Used for DSS keys inheritance and as Line 1</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Additional Accounts</label>
+                        <div id="accountsContainer">
+                            {% if phone and phone.account_ids %}
+                                {% for acc_id in phone.account_ids %}
+                                    {% if acc_id != phone.primary_account_id %}
+                                        <div class="input-group mb-2">
+                                            <select name="additional_account_ids" class="form-select">
+                                                <option value="">Select Account...</option>
+                                                {% for acc in accounts %}
+                                                    <option value="{{ acc.id }}" {% if acc.id == acc_id %}selected{% endif %}>
+                                                        {{ acc.name }} ({{ acc.username }})
+                                                    </option>
+                                                {% endfor %}
+                                            </select>
+                                            <button type="button" class="btn btn-outline-danger" onclick="this.closest('.input-group').remove()">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="addAccount()">
+                            <i class="bi bi-plus"></i> Add Account
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if phone %}
+    <div class="card mb-4">
+        <div class="card-header"><i class="bi bi-key"></i> DSS Keys Configuration</div>
+        <div class="card-body">
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" name="override_dss_keys"
+                       id="overrideDssKeys"
+                       {% if phone.override_dss_keys %}checked{% endif %}
+                       hx-get="/phones/{{ phone.id }}/dss-keys"
+                       hx-trigger="change"
+                       hx-target="#dssKeysContainer"
+                       hx-swap="innerHTML">
+                <label class="form-check-label" for="overrideDssKeys"><strong>Override DSS Keys</strong></label>
+                <div class="form-text">When disabled, keys are inherited from Primary Account.</div>
+            </div>
+            <div id="dssKeysContainer">
+                {% if phone.override_dss_keys %}
+                    {% include "phones/_dss_keys_table.html" %}
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        DSS keys are inherited from Primary Account. Enable override to customize.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {# custom_config собирается JS в JSON (поле custom_config), не через name="custom_*" #}
+    <div class="card mb-4">
+        <div class="card-header"><i class="bi bi-gear"></i> Custom Configuration (Key-Value)</div>
+        <div class="card-body">
+            <div id="customConfigContainer">
+                {% if phone and phone.custom_config %}
+                    {% for key, value in phone.custom_config.items() %}
+                    <div class="row mb-2 cfg-row">
+                        <div class="col-md-5">
+                            <input type="text" class="form-control cfg-key" value="{{ key }}" placeholder="Parameter name">
+                        </div>
+                        <div class="col-md-5">
+                            <input type="text" class="form-control cfg-val" value="{{ value }}" placeholder="Value">
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('.row').remove()">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-muted">No custom settings. Click "Add Custom Setting".</div>
+                {% endif %}
+            </div>
+            <button type="button" class="btn btn-outline-primary btn-sm mt-2" onclick="addCustomConfig()">
+                <i class="bi bi-plus"></i> Add Custom Setting
+            </button>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+        <a class="btn btn-outline-secondary" href="/phones">Cancel</a>
+        {% if phone %}
+        <button type="button" class="btn btn-outline-success" onclick="pushAutop()">
+            <i class="bi bi-cloud-arrow-down"></i> AutoP
+        </button>
+        <button type="button" class="btn btn-outline-danger" onclick="deletePhone()">Delete</button>
+        {% endif %}
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-save"></i> Save
+        </button>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function addAccount() {
+    const container = document.getElementById('accountsContainer');
+    const primarySelect = document.querySelector('select[name="primary_account_id"]');
+    const optionsHtml = primarySelect ? primarySelect.innerHTML : '<option value="">Select Account...</option>';
+    const div = document.createElement('div');
+    div.className = 'input-group mb-2';
+    div.innerHTML = `
+        <select name="additional_account_ids" class="form-select">${optionsHtml}</select>
+        <button type="button" class="btn btn-outline-danger" onclick="this.closest('.input-group').remove()">
+            <i class="bi bi-trash"></i>
+        </button>`;
+    container.appendChild(div);
+}
+
+function addCustomConfig() {
+    const container = document.getElementById('customConfigContainer');
+    const noSettingsMsg = container.querySelector('.text-muted');
+    if (noSettingsMsg) noSettingsMsg.remove();
+    const div = document.createElement('div');
+    div.className = 'row mb-2 cfg-row';
+    div.innerHTML = `
+        <div class="col-md-5"><input type="text" class="form-control cfg-key" placeholder="Parameter name"></div>
+        <div class="col-md-5"><input type="text" class="form-control cfg-val" placeholder="Value"></div>
+        <div class="col-md-2">
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('.row').remove()">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>`;
+    container.appendChild(div);
+}
+
+const phoneAccountCount = parseInt(document.getElementById('phoneAccountCount')?.value) || 0;
+
+function generateAccountOptions(type, currentValue) {
+    let options = '';
+    if (type === 0) return '<option value="0" selected>-</option>';
+    if (type === 13) {
+        options += '<option value="0"' + (currentValue == 0 ? ' selected' : '') + '>Auto</option>';
+        for (let i = 1; i <= Math.max(phoneAccountCount, 1); i++) {
+            options += '<option value="' + i + '"' + (currentValue == i ? ' selected' : '') + '>Account ' + i + '</option>';
+        }
+        return options;
+    }
+    if (type === 15 || type === 16) {
+        for (let i = 1; i <= Math.max(phoneAccountCount, 1); i++) {
+            options += '<option value="' + i + '"' + (currentValue == i ? ' selected' : '') + '>Account ' + i + '</option>';
+        }
+        return options;
+    }
+    return '<option value="0">-</option>';
+}
+
+function updateAccountColumn(typeSelect) {
+    const row = typeSelect.closest('tr');
+    const accountSelect = row.querySelector('.dss-account');
+    const type = parseInt(typeSelect.value);
+    const currentValue = accountSelect.dataset.value || 1;
+    accountSelect.innerHTML = generateAccountOptions(type, currentValue);
+    accountSelect.disabled = (type === 0);
+}
+
+function addDssKey() {
+    const table = document.getElementById('dssKeysTable');
+    if (!table) return;
+    const tbody = table.tBodies[0];
+    const index = tbody.rows.length;
+    tbody.insertAdjacentHTML('beforeend', `
+        <tr>
+            <td><input type="number" class="form-control form-control-sm dss-line" value="${index + 1}" min="1" max="60"></td>
+            <td>
+                <select class="form-select form-select-sm dss-type" onchange="updateAccountColumn(this)">
+                    <option value="0">N/A</option>
+                    <option value="15">Account</option>
+                    <option value="13">Speed Dial</option>
+                    <option value="16">BLF</option>
+                </select>
+            </td>
+            <td>
+                <select class="form-select form-select-sm dss-account" data-value="1">
+                    <option value="1">Account 1</option>
+                </select>
+            </td>
+            <td><input type="text" class="form-control form-control-sm dss-value"></td>
+            <td><input type="text" class="form-control form-control-sm dss-extension"></td>
+            <td><input type="text" class="form-control form-control-sm dss-label"></td>
+            <td><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>
+        </tr>`);
+    updateAccountColumn(tbody.lastElementChild.querySelector('.dss-type'));
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('#dssKeysTable tbody tr').forEach(row => {
+        const typeSelect = row.querySelector('.dss-type');
+        if (typeSelect) updateAccountColumn(typeSelect);
+    });
+});
+
+{% if phone %}
+async function deletePhone() {
+    if (!confirm('Delete this phone?')) return;
+    const response = await fetch('/phones/{{ phone.id }}/delete', { method: 'POST' });
+    const data = await response.json();
+    if (response.ok) window.location.href = '/phones';
+    else alert(data.detail || 'Delete failed');
+}
+async function pushAutop() {
+    const response = await fetch('/phones/{{ phone.id }}/autop', { method: 'POST' });
+    const data = await response.json();
+    alert(data.message || (data.autop ? 'AutoP sent' : 'AutoP failed'));
+}
+{% endif %}
+
+document.getElementById('phoneForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const primaryAccountId = document.querySelector('select[name="primary_account_id"]').value;
+    const additionalAccounts = [];
+    document.querySelectorAll('select[name="additional_account_ids"]').forEach(select => {
+        if (select.value) additionalAccounts.push(select.value);
+    });
+    const allAccountIds = [];
+    if (primaryAccountId) allAccountIds.push(primaryAccountId);
+    additionalAccounts.forEach(id => { if (!allAccountIds.includes(id)) allAccountIds.push(id); });
+
+    const dssKeys = [];
+    document.querySelectorAll('#dssKeysTable tbody tr').forEach((row, index) => {
+        const type = parseInt(row.querySelector('.dss-type')?.value || 0);
+        dssKeys.push({
+            line: parseInt(row.querySelector('.dss-line')?.value || (index + 1)),
+            type: type,
+            account: type === 0 ? 0 : parseInt(row.querySelector('.dss-account')?.value || 1),
+            value: row.querySelector('.dss-value')?.value || '',
+            extension: row.querySelector('.dss-extension')?.value || '',
+            label: row.querySelector('.dss-label')?.value || ''
+        });
+    });
+
+    const customConfig = {};
+    document.querySelectorAll('#customConfigContainer .cfg-row').forEach(row => {
+        const key = row.querySelector('.cfg-key')?.value?.trim();
+        const value = row.querySelector('.cfg-val')?.value;
+        if (key) customConfig[key] = value;
+    });
+
+    const formData = new FormData(this);
+    formData.set('account_ids', allAccountIds.join(','));
+    formData.set('primary_account_id', primaryAccountId);
+    formData.set('custom_dss_keys', JSON.stringify(dssKeys));
+    formData.set('custom_config', JSON.stringify(customConfig));
+    const override = document.getElementById('overrideDssKeys');
+    formData.set('override_dss_keys', override && override.checked ? 'on' : '0');
+
+    try {
+        const response = await fetch(this.action, { method: 'POST', body: formData });
+        const result = await response.json();
+        if (response.ok) {
+            alert(result.message || 'Saved');
+            window.location.href = result.redirect || '/phones';
+        } else {
+            alert('Ошибка: ' + (result.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        alert('Ошибка: ' + error.message);
+    }
+});
+</script>
+{% endblock %}

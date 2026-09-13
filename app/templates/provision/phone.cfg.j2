@@ -1,0 +1,39 @@
+{# $MAC.cfg: только то, что уникально для трубки.
+   DSS рендерится в Python (config.linekeys_block) — Jinja {%- склеивал строки. #}
+#!version:1.0.0.1
+##File header "#!version:1.0.0.1" can not be edited or deleted.##
+
+#######################################################################################
+##                        PHONE SPECIFIC OVERRIDES                                   ##
+#######################################################################################
+{% for key, value in config.phone.items() %}
+{% if value is not none %}
+{{ key }} = {{ value | cfg }}
+{% endif %}
+{% endfor %}
+
+#######################################################################################
+##                        ACCOUNTS CONFIGURATION                                     ##
+#######################################################################################
+{% for acc in config.accounts %}
+account.{{ acc.index }}.enable = 1
+account.{{ acc.index }}.label = {{ acc.name | cfg }}
+account.{{ acc.index }}.display_name = {{ (acc.display_name or acc.username) | cfg }}
+account.{{ acc.index }}.auth_name = {{ acc.username | cfg }}
+account.{{ acc.index }}.user_name = {{ acc.username | cfg }}
+account.{{ acc.index }}.password = {{ acc.password | cfg }}
+account.{{ acc.index }}.sip_server.1.address = {{ acc.sip_server | cfg }}
+account.{{ acc.index }}.sip_server.1.port = {{ acc.sip_port }}
+account.{{ acc.index }}.sip_server.1.transport_type = {{ 2 if acc.transport == 'tcp' else (3 if acc.transport == 'tls' else 0) }}
+account.{{ acc.index }}.codec.1.enable = 1
+account.{{ acc.index }}.codec.1.payload_type = PCMU
+account.{{ acc.index }}.codec.1.priority = 1
+account.{{ acc.index }}.codec.2.enable = 1
+account.{{ acc.index }}.codec.2.payload_type = PCMA
+account.{{ acc.index }}.codec.2.priority = 2
+{% endfor %}
+
+#######################################################################################
+##                        DSS Keys (Line Keys)                                       ##
+#######################################################################################
+{{ config.linekeys_block }}
