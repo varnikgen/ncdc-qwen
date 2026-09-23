@@ -35,6 +35,7 @@ def test_provision_global_with_auth(client):
     # HTML-escaping would turn query '&' into '&' and break Yealink
     assert "amp;mac=" not in body
     assert "token=test-token-123&mac=" in body
+    assert "ip=$ip" in body
     assert "10.30.30.30" not in body
     # URL не в кавычках — иначе часть прошивок не подставляет $mac
     assert 'action_url.registered = https://' in body
@@ -72,6 +73,51 @@ def test_action_url_enroll_and_dnd(client):
     try:
         phone = db.query(Phone).filter(Phone.mac == "001122334455").first()
         assert phone.status == "dnd"
+    finally:
+        db.close()
+
+
+def test_phone_ip_not_overwritten_by_podman_nat(client):
+    r = client.get(
+        "/actions/?token=test-token-123&mac=249AD86E9D88&ip=10.30.17.68&event=registered",
+        headers={"X-Forwarded-For": "10.89.0.3"},
+    )
+    assert r.status_code == 200
+    db = SessionLocal()
+    try:
+        phone = db.query(Phone).filter(Phone.mac == "249AD86E9D88").first()
+        assert phone.ip_address == "10.30.17.68"
+    finally:
+        db.close()
+
+    # повторный запрос без $ip, только адрес контейнера nginx — LAN не затираем
+    r = client.get(
+        "/actions/?token=test-token-123&mac=249AD86E9D88&event=registered",
+        headers={"X-Forwarded-For": "10.89.0.3"},
+    )
+    assert r.status_code == 200
+    db = SessionLocal()
+    try:
+        phone = db.query(Phone).filter(Phone.mac == "249AD86E9D88").first()
+        assert phone.ip_address == "10.30.17.68"
+    finally:
+        db.close()
+
+
+def test_provision_does_not_store_podman_ip(client):
+    r = client.get(
+        "/provision/249AD86E9D88.cfg",
+        headers={
+            "Authorization": _basic("provision", "test-prov-pass")["Authorization"],
+            "X-Forwarded-For": "10.89.0.3",
+        },
+    )
+    assert r.status_code == 200
+    db = SessionLocal()
+    try:
+        phone = db.query(Phone).filter(Phone.mac == "249AD86E9D88").first()
+        assert phone is not None
+        assert phone.ip_address != "10.89.0.3"
     finally:
         db.close()
 

@@ -1,0 +1,2 @@
+# Сюда кладутся manylinux-колёса (pip download на машине с интернетом).
+# См. scripts/download-linux-wheels.ps1

@@ -1,4 +1,5 @@
 from app.security import extract_mac, normalize_mac, quote_cfg, constant_time_equals
+from app.phone_ip import pick_phone_ip, is_phone_ip, is_container_ip
 
 
 def test_normalize_mac_strips_separators():
@@ -27,3 +28,13 @@ def test_quote_cfg_special_chars():
 def test_constant_time_equals():
     assert constant_time_equals("abc", "abc")
     assert not constant_time_equals("abc", "abd")
+
+
+def test_pick_phone_ip_ignores_podman_nat():
+    assert is_container_ip("10.89.0.3")
+    assert is_phone_ip("10.30.17.68")
+    assert pick_phone_ip("10.30.17.68", "10.89.0.3", "10.89.0.3") == "10.30.17.68"
+    assert pick_phone_ip(None, "10.89.0.3", "10.30.17.68") == "10.30.17.68"
+    assert pick_phone_ip(None, "10.30.17.68", None) is None  # TCP-источник не доверяем
+    assert pick_phone_ip(None, "10.89.0.3", "10.89.0.3") is None
+    assert pick_phone_ip("$ip", "10.89.0.3", None) is None

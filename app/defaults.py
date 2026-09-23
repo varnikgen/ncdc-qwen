@@ -12,7 +12,7 @@ def action_url(event: str) -> str:
     token = settings.ACTION_URI_TOKEN
     return (
         f"{settings.base_url}/actions/"
-        f"?token={token}&mac=$mac&event={event}"
+        f"?token={token}&mac=$mac&ip=$ip&event={event}"
     )
 
 
@@ -68,6 +68,10 @@ def seed_global_config(db) -> None:
             changed = True
         elif old in current and new in current:
             current.pop(old)
+            changed = True
+    for key, value in list(current.items()):
+        if key.startswith("action_url.") and isinstance(value, str) and "mac=$mac" in value and "ip=$ip" not in value:
+            current[key] = value.replace("mac=$mac", "mac=$mac&ip=$ip")
             changed = True
     for key, value in default_global_settings().items():
         if key not in current or current[key] in (None, ""):

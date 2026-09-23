@@ -45,7 +45,7 @@ async def csrf_middleware(request: Request, call_next):
             CSRF_COOKIE,
             new_token(24),
             httponly=False,  # JS должен прочитать cookie, чтобы поставить заголовок
-            samesite="strict",
+            samesite="lax",  # strict ломает заход по IP после редиректа с имени
             secure=request.url.scheme == "https",
             path="/",
         )

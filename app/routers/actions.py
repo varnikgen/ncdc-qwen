@@ -13,6 +13,7 @@ from app.config import settings
 from app.database import get_db
 from app.models import Phone
 from app.security import extract_mac, constant_time_equals
+from app.phone_ip import pick_phone_ip, reported_phone_ip, request_src_ip
 from app.services.audit import log_action
 
 router = APIRouter(prefix="/actions", tags=["actions"])
@@ -20,13 +21,6 @@ logger = logging.getLogger("ncdc.actions")
 
 DND_ON_EVENTS = {"dnd_on", "dndon", "DNDOn"}
 DND_OFF_EVENTS = {"dnd_off", "dndoff", "DNDOff"}
-
-
-def _client_ip(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else ""
 
 
 @router.get("/")
@@ -37,12 +31,13 @@ async def handle_action_url(request: Request, db: Session = Depends(get_db)):
     if not settings.ACTION_URI_TOKEN or not constant_time_equals(token, settings.ACTION_URI_TOKEN):
         raise HTTPException(status_code=403, detail="Invalid action token")
 
-    client_ip = _client_ip(request)
+    src_ip = request_src_ip(request)
+    reported_ip = reported_phone_ip(request)
     user_agent = request.headers.get("user-agent", "")
     mac = extract_mac(user_agent, request.query_params.get("mac", ""))
 
     if not mac:
-        logger.warning("Action URL ignored: MAC not found (UA=%s IP=%s)", user_agent, client_ip)
+        logger.warning("Action URL ignored: MAC not found (UA=%s src=%s)", user_agent, src_ip)
         return {"status": "ignored", "reason": "Unknown MAC"}
 
     phone = db.query(Phone).filter(Phone.mac.ilike(mac)).first()
@@ -55,8 +50,8 @@ async def handle_action_url(request: Request, db: Session = Depends(get_db)):
         db.add(phone)
         created = True
 
-    if client_ip:
-        phone.ip_address = client_ip
+    chosen = pick_phone_ip(reported_ip, None, phone.ip_address)
+    phone.ip_address = chosen
     phone.last_seen = datetime.utcnow()
 
     event = request.query_params.get("event", "")
@@ -72,6 +67,14 @@ async def handle_action_url(request: Request, db: Session = Depends(get_db)):
 
     db.commit()
     if created:
-        log_action(db, "AUTO_ENROLL", "Phone", phone.id, "action-uri", f"Enrolled {mac} from {client_ip}")
-    logger.info("Action URL %s MAC=%s IP=%s event=%s", "created" if created else "updated", mac, client_ip, event)
-    return {"status": "success", "mac": mac, "created": created}
+        log_action(db, "AUTO_ENROLL", "Phone", phone.id, "action-uri", f"Enrolled {mac} from {chosen or src_ip}")
+    logger.info(
+        "Action URL %s MAC=%s ip=%s reported=%s src=%s event=%s",
+        "created" if created else "updated",
+        mac,
+        chosen,
+        reported_ip,
+        src_ip,
+        event,
+    )
+    return {"status": "success", "mac": mac, "created": created, "ip": chosen}

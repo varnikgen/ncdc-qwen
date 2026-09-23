@@ -15,6 +15,7 @@ import logging
 from app.database import get_db
 from app.models import Phone, Account, PhoneModel
 from app.security import normalize_mac
+from app.phone_ip import is_phone_ip, is_container_ip
 from app.services.push_service import trigger_phone_autop
 from app.services.audit import log_action, admin_user
 
@@ -153,7 +154,14 @@ async def update_phone(request: Request, phone_id: int, db: Session = Depends(ge
 
     ip = (form.get("ip_address") or "").strip()
     if ip:
+        if not is_phone_ip(ip):
+            raise HTTPException(
+                status_code=400,
+                detail="Это адрес контейнерной сети (10.89.x / docker), не LAN трубки. Укажите 10.30.17.68 или оставьте пустым.",
+            )
         phone.ip_address = ip
+    elif phone.ip_address and is_container_ip(phone.ip_address):
+        phone.ip_address = None
 
     if form.get("admin_username"):
         phone.admin_username = form.get("admin_username")

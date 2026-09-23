@@ -2,7 +2,7 @@
 
 Система автопровижининга IP-телефонов Yealink: веб-админка, иерархические cfg-файлы, HTTPS, 802.1x, DSS-клавиши, AutoP push и журнал аудита.
 
-Версия **0.2.0** закрывает дыры безопасности и ломающие баги 0.1.x. Подробности — в [FIXES.md](FIXES.md).
+Версия **0.2.6**. Подробности — в [FIXES.md](FIXES.md).
 
 ### Стек
 
@@ -31,7 +31,67 @@ podman-compose up --build -d
 # или: docker compose up --build -d
 ```
 
-Откройте `https://<PUBLIC_BASE_URL>` и войдите учётками `NCDC_ADMIN_USER` / `NCDC_ADMIN_PASS`.
+Если `pip install` внутри образа падает с `Network is unreachable` / `Errno 101` —
+у контейнера нет выхода на pypi.org (часто rootless Podman). Два варианта:
+
+**A. Сеть хоста на время сборки**
+
+```bash
+podman build --network=host -t ncdc-qwen .
+podman-compose up -d
+```
+
+В `podman-compose.yml` для `build` уже стоит `network: host`.
+
+**B. Колёса с Windows (там pip у вас работает)**
+
+На ПК:
+
+```powershell
+.\scripts\download-linux-wheels.ps1
+```
+
+Скопируйте папку `vendor\py311-linux\` на сервер в тот же путь репозитория.
+Сборка больше не ходит в интернет:
+
+```bash
+podman-compose up --build -d
+```
+
+Не берите колёса из своего Windows-venv — они не подойдут Linux-образу.
+Скрипт качает именно `manylinux` / CPython 3.11.
+
+### Windows: имя уже смотрит на этот ПК
+
+`ncdc-dev.bsmuk.ru` → `uk-khv-001-nv.bsmuk.ru` → **10.30.30.30**.
+Если `ipconfig` показывает `10.30.30.30`, DNS правильный. Отказ в соединении —
+потому что **Podman слушает порты внутри своей ВМ**, а не на Ethernet Windows.
+Телефоны и браузер бьют в `10.30.30.30:80/443`, там пусто.
+
+Не чините hosts. Запускайте без контейнеров (venv у вас уже ставится):
+
+```powershell
+# в .env:
+# PUBLIC_BASE_URL=http://ncdc-dev.bsmuk.ru:8000
+
+.\scripts\run-windows.ps1
+```
+
+Дальше:
+
+* админка: http://10.30.30.30:8000/ или http://ncdc-dev.bsmuk.ru:8000/
+* health: `curl.exe http://10.30.30.30:8000/health`
+* брандмауэр: разрешить входящий TCP 8000
+
+Порт 80 (тогда URL без `:8000`) — тот же скрипт `-Port 80` из PowerShell **администратора**.
+
+Проверка, кто слушает:
+
+```powershell
+powershell -File .\scripts\where-is-ncdc.ps1
+```
+
+Логин: `NCDC_ADMIN_USER` / `NCDC_ADMIN_PASS` из `.env`.
 
 Без заполненного `.env` приложение **не стартует** — это специально, чтобы не поднять прод с `admin/ChangeMe123!`.
 

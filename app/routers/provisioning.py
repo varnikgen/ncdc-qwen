@@ -19,6 +19,7 @@ from app.middleware.auth import provision_authorized
 from app.models import Phone, PhoneModel, GlobalConfig
 from app.provision_templates import jinja_env
 from app.security import MAC_RE, normalize_mac
+from app.phone_ip import pick_phone_ip, reported_phone_ip
 from app.services.config_builder import build_phone_config, build_model_config
 from app.services.audit import log_action
 
@@ -37,18 +38,10 @@ def _require_provision_auth(request: Request) -> None:
     )
 
 
-def _client_ip(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else ""
-
-
 def _touch_phone(db, phone: Phone, request: Request) -> None:
-    """IP и last_seen с каждого скачивания cfg — иначе AutoP некуда слать."""
-    ip = _client_ip(request)
-    if ip:
-        phone.ip_address = ip
+    """last_seen с каждого cfg. IP только из $ip (на /provision его нет) или уже сохранённый LAN."""
+    chosen = pick_phone_ip(reported_phone_ip(request), None, phone.ip_address)
+    phone.ip_address = chosen  # None, если в БД был 10.89.0.3
     phone.last_seen = datetime.utcnow()
     db.commit()
 
