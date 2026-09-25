@@ -63,9 +63,9 @@ def render_linekeys_block(dss_keys: list | None, max_keys: int) -> str:
 
         lines.append(f"linekey.{n}.type = {ktype}")
         lines.append(f"linekey.{n}.line = {account}")
-        lines.append(f"linekey.{n}.value = {quote_cfg(raw.get('value') or '')}")
-        lines.append(f"linekey.{n}.extension = {quote_cfg(raw.get('extension') or '')}")
-        lines.append(f"linekey.{n}.label = {quote_cfg(raw.get('label') or '')}")
+        lines.append(f"linekey.{n}.value = {raw.get('value', '')}")
+        lines.append(f"linekey.{n}.extension = {raw.get('extension', '')}")
+        lines.append(f"linekey.{n}.label = {raw.get('label', '')}")
         lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
