@@ -204,6 +204,7 @@ async def update_phone(request: Request, phone_id: int, db: Session = Depends(ge
         "message": message,
         "autop": pushed,
         "autop_detail": autop_detail,
+        "redirect": f"/phones/{phone_id}/edit",
     }
 
 

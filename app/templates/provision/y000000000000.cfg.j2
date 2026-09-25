@@ -9,7 +9,7 @@
 #######################################################################################
 {% for key, value in config.global.items() %}
 {% if value is not none and value != '' and not key.startswith('action_url.') %}
-{{ key }} = {{ value | cfg }}
+{{ key }} = {{ value | safe }}
 {% endif %}
 {% endfor %}
 
