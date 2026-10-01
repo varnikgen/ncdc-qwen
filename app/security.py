@@ -51,12 +51,18 @@ def extract_mac(user_agent: str = "", query_mac: str = "") -> str | None:
 
 
 def quote_cfg(value) -> str:
-    """Значение для Yealink cfg.
+    """Значение для Yealink cfg: `ключ = всё_до_конца_строки`.
 
-    Формат строки: `ключ = всё_до_конца_строки`, поэтому `=` и `&` в URL
-    кавычить нельзя — иначе трубка может взять кавычки в состав адреса
-    и Action URL перестанет уходить.
-    Кавычки нужны для пробела, #, ; (комментарий) и перевода строки.
+    Кавычить можно только если без них парсер срежет значение:
+      # и ;  — комментарий до конца строки
+      перевод строки
+      сама кавычка
+
+    Нельзя кавычить:
+      URL с = и & (Action URL, firmware.url)
+      LDAP DN с запятыми (ldap.user / ldap.base) — трубка отправит
+      кавычки на bind и LDAP ответит invalid credentials
+      ldap.name_attr = cn sn  — пробел здесь нормален
     Булево пишем как 0/1.
     """
     if value is None:
@@ -66,7 +72,7 @@ def quote_cfg(value) -> str:
     text = str(value)
     if text == "":
         return ""
-    if any(ch in text for ch in " \t#;\"'\n\r,"):
+    if any(ch in text for ch in '#;"\n\r'):
         escaped = text.replace("\\", "\\\\").replace('"', '\\"')
         return f'"{escaped}"'
     return text

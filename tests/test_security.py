@@ -19,7 +19,10 @@ def test_extract_mac_from_query():
 
 def test_quote_cfg_special_chars():
     assert quote_cfg("simple") == "simple"
-    assert quote_cfg("p@ss word") == '"p@ss word"'
+    assert quote_cfg("p@ss word") == "p@ss word"
+    assert quote_cfg("cn=admin,dc=bsmuk,dc=ru") == "cn=admin,dc=bsmuk,dc=ru"
+    assert quote_cfg("cn sn") == "cn sn"
+    assert quote_cfg("foo#bar") == '"foo#bar"'
     assert quote_cfg('a"b') == r'"a\"b"'
     assert quote_cfg(True) == "1"
     assert quote_cfg(False) == "0"

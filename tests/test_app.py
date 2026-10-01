@@ -43,6 +43,31 @@ def test_provision_global_with_auth(client):
     assert "features.action_uri_limit_ip = any" in body
 
 
+def test_ldap_dn_not_quoted(client, admin_headers):
+    """Запятые в DN нельзя брать в кавычки — Yealink шлёт их на bind."""
+    r = client.post(
+        "/settings/global",
+        data={
+            "param_ldap.enable": "1",
+            "param_ldap.host": "10.30.1.10",
+            "param_ldap.user": "cn=ncdc,ou=users,dc=bsmuk,dc=ru",
+            "param_ldap.base": "dc=bsmuk,dc=ru",
+            "param_ldap.password": "Ldap#Pass",
+            "param_ldap.name_attr": "cn sn",
+        },
+        headers=admin_headers,
+    )
+    assert r.status_code == 200
+    r = client.get("/provision/y000000000000.cfg", headers=_basic("provision", "test-prov-pass"))
+    body = r.text
+    assert "ldap.user = cn=ncdc,ou=users,dc=bsmuk,dc=ru" in body
+    assert 'ldap.user = "cn=ncdc' not in body
+    assert "ldap.base = dc=bsmuk,dc=ru" in body
+    assert "ldap.name_attr = cn sn" in body
+    # # в пароле — иначе cfg обрежется комментарием
+    assert 'ldap.password = "Ldap#Pass"' in body
+
+
 def test_unknown_mac_auto_enrolls(client):
     r = client.get("/provision/001565C18725.cfg", headers=_basic("provision", "test-prov-pass"))
     assert r.status_code == 200
@@ -188,7 +213,7 @@ def test_sip_password_is_quoted():
         db.commit()
         data = build_phone_config(db, "FFFFEEEE0001")
         rendered = jinja_env.get_template("phone.cfg.j2").render(config=data)
-        assert 'account.1.password = "p@ss word"' in rendered
+        assert "account.1.password = p@ss word" in rendered
     finally:
         db.close()
 
