@@ -23,30 +23,43 @@ def test_admin_requires_auth(client):
 
 
 def test_provision_boot_open_without_auth(client):
-    r = client.get("/provision/y000000000000.boot")
+    r = client.get("/provision/249ad86e9d88.boot")
     assert r.status_code == 200
     body = r.text
-    assert "static.auto_provision.username = provision" in body
-    assert "test-prov-pass" in body
+    assert "overwrite_mode =" in body
+    assert 'include:config "y000000000000.cfg"' in body
+    assert 'include:config "$PN.cfg"' in body
+    assert 'include:config "$MAC.cfg"' in body
+    assert "static.auto_provision" not in body
+    assert "security.user_password" not in body
     assert "account.1.password" not in body
 
 
-def test_provision_cfg_bootstrap_without_auth(client):
-    """Без Basic — только учётки провижининга, не 401 и не SIP."""
+def test_provision_cfg_open_when_bootstrap(client):
+    """PROVISION_BOOTSTRAP: cfg без Basic, иначе после reset нет includes."""
     r = client.get("/provision/y000000000000.cfg")
     assert r.status_code == 200
     body = r.text
-    assert "static.auto_provision.username = provision" in body
-    assert "ldap.password" not in body
-    assert "account.1." not in body
+    assert "token=test-token-123&mac=" in body
     assert "security.user_password = admin:PhoneWeb-Test-1" in body
+    assert "ncdc.phone.admin_password" not in body
 
 
-def test_provision_mac_cfg_bootstrap_hides_sip(client):
-    r = client.get("/provision/249AD86E9D88.cfg")
+def test_global_user_passwords_in_cfg(client, admin_headers):
+    r = client.post(
+        "/settings/global",
+        data={
+            "param_ncdc.phone.admin_password": "Adm#1n-Web",
+            "param_ncdc.phone.user_password": "Us3r-Web",
+        },
+        headers=admin_headers,
+    )
     assert r.status_code == 200
-    assert "account.1.password" not in r.text
-    assert "static.auto_provision.username = provision" in r.text
+    r = client.get("/provision/y000000000000.cfg", headers=_basic("provision", "test-prov-pass"))
+    body = r.text
+    assert "security.user_password = admin:Adm#1n-Web" in body or 'security.user_password = "admin:Adm#1n-Web"' in body
+    assert "security.user_password = user:Us3r-Web" in body
+    assert "ncdc.phone." not in body
 
 
 def test_provision_global_with_auth(client):

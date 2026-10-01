@@ -38,10 +38,11 @@ def default_global_settings() -> dict:
         "action_url.setup_completed": action_url("setup_complete"),
         "features.action_uri.phone.enable": 1,
     }
-    # Чтобы после первого успешного провижининга трубка уже знала Basic-учётки
     if settings.PROVISION_AUTH_ENABLED and settings.PROVISION_USER and settings.PROVISION_PASS:
         cfg["static.auto_provision.username"] = settings.PROVISION_USER
         cfg["static.auto_provision.password"] = settings.PROVISION_PASS
+    if (settings.PHONE_WEB_PASSWORD or "").strip() and settings.PHONE_WEB_PASSWORD != "admin":
+        cfg["ncdc.phone.admin_password"] = settings.PHONE_WEB_PASSWORD.strip()
     return cfg
 
 

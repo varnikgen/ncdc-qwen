@@ -77,6 +77,8 @@ PARAM_LABELS = {
     "voice.ring_vol": "Ring Volume",
     "directory.edit_default_input_method": "Directory Input Method",
     "action_url.show_msgbox": "Show Action URL Message Box",
+    "ncdc.phone.admin_password": "Phone admin password",
+    "ncdc.phone.user_password": "Phone user password",
 }
 
 SELECT_OPTIONS = {
@@ -163,6 +165,10 @@ PARAM_GROUPS = {
         "static.auto_provision.custom.protect",
         "static.auto_provision.weekly.enable",
     ],
+    "Phone Web UI": [
+        "ncdc.phone.admin_password",
+        "ncdc.phone.user_password",
+    ],
     "Action URI": [
         "features.action_uri_limit_ip",
         "features.action_uri.phone.enable",
@@ -229,6 +235,8 @@ INT_PARAMS = {
 PASSWORD_PARAMS = {
     "ldap.password",
     "static.auto_provision.password",
+    "ncdc.phone.admin_password",
+    "ncdc.phone.user_password",
 }
 
 
