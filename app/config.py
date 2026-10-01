@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     )
 
     APP_NAME: str = "NCDC"
-    APP_VERSION: str = "0.2.7"
+    APP_VERSION: str = "0.2.8"
     DEBUG: bool = False  # True включает SQL-echo — в лог попадут SIP-пароли
 
     DATABASE_URL: str = "sqlite:///./data/ncdc.db"
@@ -34,6 +34,14 @@ class Settings(BaseSettings):
     PROVISION_AUTH_ENABLED: bool = True
     PROVISION_USER: str = "provision"
     PROVISION_PASS: str = ""
+    # Заводской сброс: без Basic отдать только логин/пароль провижининга (не SIP).
+    # false = строгий 401, трубка покажет Invalid provisioning credential.
+    PROVISION_BOOTSTRAP: bool = True
+
+    # Веб-пароль трубки (не admin). Пишется в security.user_password —
+    # иначе после reset Yealink требует сменить заводской admin.
+    PHONE_WEB_USER: str = "admin"
+    PHONE_WEB_PASSWORD: str = ""
 
     # Общий секрет в Action URL: /actions/?token=...&mac=$mac
     ACTION_URI_TOKEN: str = ""

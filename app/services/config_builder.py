@@ -5,6 +5,7 @@
 дублировались бы в нескольких cfg и телефон получал конфликты.
 """
 import logging
+from app.config import settings
 from app.models import Phone, Account, PhoneModel, GlobalConfig
 from app.services.linekeys import render_linekeys_block
 
@@ -69,6 +70,13 @@ def build_phone_config(db, mac: str) -> dict:
 
     max_keys = model.max_dss_keys if model and model.max_dss_keys else 27
     final_config["linekeys_block"] = render_linekeys_block(dss_keys, max_keys)
+
+    web_user = (phone.admin_username or settings.PHONE_WEB_USER or "admin").strip() or "admin"
+    web_pass = (phone.admin_password or "").strip()
+    if not web_pass or web_pass == "admin":
+        web_pass = (settings.PHONE_WEB_PASSWORD or "").strip()
+    final_config["web_user"] = web_user
+    final_config["web_password"] = web_pass if web_pass and web_pass != "admin" else ""
 
     return final_config
 

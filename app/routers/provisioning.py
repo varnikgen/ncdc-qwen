@@ -1,12 +1,9 @@
 """Выдача Yealink cfg.
 
-Иерархия, которую трубка запрашивает после .boot:
-  y000000000000.cfg  — глобальные параметры
-  $PN.cfg            — модель (identifier НЕ похож на MAC)
-  $MAC.cfg           — 12 hex-символов → конкретное устройство
-
-Маршрут y000000000000.cfg объявлен выше /{identifier}.cfg, иначе
-глобальный файл попал бы в универсальный обработчик.
+После заводского сброса трубка ещё не знает Basic → 401
+«Invalid provisioning credential». .boot и (при PROVISION_BOOTSTRAP)
+минимальный cfg без SIP отдаём без пароля; в них пишем username/password
+провижининга и URL с user:pass. Следующий запрос уже с Basic.
 """
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -18,6 +15,7 @@ from app.database import get_db
 from app.middleware.auth import provision_authorized
 from app.models import Phone, PhoneModel, GlobalConfig
 from app.provision_templates import jinja_env
+from app.provision_url import boot_file_body, bootstrap_cfg_body
 from app.security import MAC_RE, normalize_mac
 from app.phone_ip import pick_phone_ip, reported_phone_ip
 from app.services.config_builder import build_phone_config, build_model_config
@@ -27,10 +25,7 @@ router = APIRouter(prefix="/provision", tags=["provisioning"])
 logger = logging.getLogger("ncdc.provision")
 
 
-def _require_provision_auth(request: Request) -> None:
-    """401 + WWW-Authenticate, чтобы Yealink повторил запрос с Basic."""
-    if provision_authorized(request):
-        return
+def _unauthorized() -> None:
     raise HTTPException(
         status_code=401,
         detail="Provisioning credentials required",
@@ -38,10 +33,19 @@ def _require_provision_auth(request: Request) -> None:
     )
 
 
+def _full_cfg_or_bootstrap(request: Request) -> Response | None:
+    """None = можно отдать полный cfg. Иначе — ответ-bootstrap или 401."""
+    if provision_authorized(request):
+        return None
+    if settings.PROVISION_BOOTSTRAP:
+        return Response(content=bootstrap_cfg_body(), media_type="text/plain")
+    _unauthorized()
+
+
 def _touch_phone(db, phone: Phone, request: Request) -> None:
-    """last_seen с каждого cfg. IP только из $ip (на /provision его нет) или уже сохранённый LAN."""
+    """last_seen с каждого cfg. IP только из $ip или уже сохранённый LAN."""
     chosen = pick_phone_ip(reported_phone_ip(request), None, phone.ip_address)
-    phone.ip_address = chosen  # None, если в БД был 10.89.0.3
+    phone.ip_address = chosen
     phone.last_seen = datetime.utcnow()
     db.commit()
 
@@ -53,22 +57,16 @@ def _render(name: str, context: dict) -> Response:
 
 @router.get("/y000000000000.boot")
 @router.get("/{mac}.boot")
-async def get_boot_file(request: Request, mac: str = "y000000000000"):
-    """Одинаковый boot для всех MAC: Yealink сам подставит $PN и $MAC."""
-    _require_provision_auth(request)
-    boot_content = (
-        "#!version:1.0.0.1\n"
-        f"overwrite_mode = {int(settings.BOOT_OVERWRITE_MODE)}\n"
-        'include:config "y000000000000.cfg"\n'
-        'include:config "$PN.cfg"\n'
-        'include:config "$MAC.cfg"\n'
-    )
-    return Response(content=boot_content, media_type="text/plain")
+async def get_boot_file(mac: str = "y000000000000"):
+    """Без Basic: после reset трубка ещё не знает пароль. Секретов SIP здесь нет."""
+    return Response(content=boot_file_body(), media_type="text/plain")
 
 
 @router.get("/y000000000000.cfg")
 async def get_global_config(request: Request, db: Session = Depends(get_db)):
-    _require_provision_auth(request)
+    bootstrap = _full_cfg_or_bootstrap(request)
+    if bootstrap is not None:
+        return bootstrap
     global_cfg = db.query(GlobalConfig).first()
     cfg_settings = global_cfg.settings if global_cfg and global_cfg.settings else {}
     return _render("y000000000000.cfg.j2", {"config": {"global": cfg_settings}})
@@ -77,7 +75,9 @@ async def get_global_config(request: Request, db: Session = Depends(get_db)):
 @router.get("/{identifier}.cfg")
 async def get_config(identifier: str, request: Request, db: Session = Depends(get_db)):
     """12 hex → phone cfg; иначе считаем identifier именем модели ($PN)."""
-    _require_provision_auth(request)
+    bootstrap = _full_cfg_or_bootstrap(request)
+    if bootstrap is not None:
+        return bootstrap
 
     if MAC_RE.match(identifier):
         mac = normalize_mac(identifier)

@@ -22,9 +22,31 @@ def test_admin_requires_auth(client):
     assert r.status_code == 401
 
 
-def test_provision_requires_auth(client):
+def test_provision_boot_open_without_auth(client):
+    r = client.get("/provision/y000000000000.boot")
+    assert r.status_code == 200
+    body = r.text
+    assert "static.auto_provision.username = provision" in body
+    assert "test-prov-pass" in body
+    assert "account.1.password" not in body
+
+
+def test_provision_cfg_bootstrap_without_auth(client):
+    """Без Basic — только учётки провижининга, не 401 и не SIP."""
     r = client.get("/provision/y000000000000.cfg")
-    assert r.status_code == 401
+    assert r.status_code == 200
+    body = r.text
+    assert "static.auto_provision.username = provision" in body
+    assert "ldap.password" not in body
+    assert "account.1." not in body
+    assert "security.user_password = admin:PhoneWeb-Test-1" in body
+
+
+def test_provision_mac_cfg_bootstrap_hides_sip(client):
+    r = client.get("/provision/249AD86E9D88.cfg")
+    assert r.status_code == 200
+    assert "account.1.password" not in r.text
+    assert "static.auto_provision.username = provision" in r.text
 
 
 def test_provision_global_with_auth(client):
