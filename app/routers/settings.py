@@ -9,6 +9,9 @@ PASSWORD_PARAMS: пустая строка не перезаписывает с�
 """
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
+import time
+from datetime import datetime, timedelta
+
 
 from app.database import get_db
 from app.models import GlobalConfig
@@ -239,6 +242,8 @@ PASSWORD_PARAMS = {
     "ncdc.phone.user_password",
 }
 
+AUTO_ENROLL_UNTIL = None
+
 
 def normalize_value(param: str, value: str):
     """Yealink ждёт 0/1 и int, форма всегда шлёт строки."""
@@ -350,3 +355,37 @@ async def update_global_config(request: Request, db: Session = Depends(get_db)):
         f"Updated global config: {', '.join(changed_params) if changed_params else 'no changes'}",
     )
     return {"status": "success", "message": "Глобальные настройки успешно сохранены"}
+
+@router.post("/auto-enroll/enable")
+async def enable_auto_enroll(request: Request, db: Session = Depends(get_db), minutes: int = 30):
+    """Временно включить AUTO_ENROLL на указанное количество минут"""
+    global AUTO_ENROLL_UNTIL
+    AUTO_ENROLL_UNTIL = datetime.utcnow() + timedelta(minutes=minutes)
+    
+    log_action(db, "ENABLE_AUTO_ENROLL", "Settings", 0, admin_user(request), 
+               f"Auto-enroll enabled for {minutes} minutes (until {AUTO_ENROLL_UNTIL})")
+    
+    return {"status": "success", "message": f"Auto-enroll enabled until {AUTO_ENROLL_UNTIL}"}
+
+@router.post("/auto-enroll/disable")
+async def disable_auto_enroll(request: Request, db: Session = Depends(get_db)):
+    """Отключить AUTO_ENROLL"""
+    global AUTO_ENROLL_UNTIL
+    AUTO_ENROLL_UNTIL = None
+    
+    log_action(db, "DISABLE_AUTO_ENROLL", "Settings", 0, admin_user(request), "Auto-enroll disabled")
+    
+    return {"status": "success", "message": "Auto-enroll disabled"}
+
+@router.get("/auto-enroll/status")
+async def auto_enroll_status():
+    """Проверить статус AUTO_ENROLL"""
+    global AUTO_ENROLL_UNTIL
+    
+    if AUTO_ENROLL_UNTIL and datetime.utcnow() < AUTO_ENROLL_UNTIL:
+        remaining = (AUTO_ENROLL_UNTIL - datetime.utcnow()).seconds // 60
+        return {"enabled": True, "until": AUTO_ENROLL_UNTIL.isoformat(), "remaining_minutes": remaining}
+    else:
+        AUTO_ENROLL_UNTIL = None  # Сброс если время вышло
+        return {"enabled": False}
+    

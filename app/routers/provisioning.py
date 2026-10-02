@@ -15,12 +15,13 @@ from app.middleware.auth import provision_authorized
 from app.models import Phone, PhoneModel, GlobalConfig
 from app.provision_templates import jinja_env
 from app.provision_url import boot_file_body
+from app.routers.settings import AUTO_ENROLL_UNTIL
 from app.security import MAC_RE, normalize_mac
 from app.phone_ip import pick_phone_ip, reported_phone_ip
 from app.services.config_builder import build_phone_config, build_model_config
 from app.services.audit import log_action
 
-router = APIRouter(prefix="/provision", tags=["provisioning"])
+router = APIRouter(prefix="/provision", tags=["provisioning"])/identifier
 logger = logging.getLogger("ncdc.provision")
 
 
@@ -64,27 +65,63 @@ async def get_global_config(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/{identifier}.cfg")
 async def get_config(identifier: str, request: Request, db: Session = Depends(get_db)):
-    _require_cfg_auth(request)
+    """12 hex → phone cfg; иначе считаем identifier именем модели ($PN)."""
+    _require_provision_auth(request)
 
     if MAC_RE.match(identifier):
         mac = normalize_mac(identifier)
         phone = db.query(Phone).filter(Phone.mac.ilike(mac)).first()
+        
         if not phone:
-            if settings.AUTO_ENROLL:
-                phone = Phone(mac=mac, status="unregistered")
+            # Проверяем AUTO_ENROLL (из .env ИЛИ временное включение)
+            auto_enroll_enabled = settings.AUTO_ENROLL or (
+                AUTO_ENROLL_UNTIL and datetime.utcnow() < AUTO_ENROLL_UNTIL
+            )
+            
+            if auto_enroll_enabled:
+                # Определяем модель по User-Agent
+                user_agent = request.headers.get("user-agent", "")
+                model_name = _detect_model_from_ua(user_agent)
+                
+                # Создаем телефон с определенной моделью
+                phone = Phone(
+                    mac=mac, 
+                    status="unregistered",
+                    model_name=model_name  # <-- Сразу назначаем модель
+                )
                 db.add(phone)
                 db.commit()
-                log_action(db, "AUTO_ENROLL", "Phone", phone.id, "provision", f"Enrolled {mac} via cfg request")
-                logger.info("Auto-enrolled phone %s on config request", mac)
+                log_action(db, "AUTO_ENROLL", "Phone", phone.id, "provision", 
+                          f"Enrolled {mac} with model {model_name}")
+                logger.info("Auto-enrolled phone %s with model %s", mac, model_name)
             else:
                 raise HTTPException(status_code=404, detail="Unknown MAC")
+        
         _touch_phone(db, phone, request)
+        
         try:
             config_data = build_phone_config(db, mac)
         except ValueError:
             raise HTTPException(status_code=404, detail="Unknown MAC")
+        
         return _render("phone.cfg.j2", {"config": config_data})
 
     model_obj = db.query(PhoneModel).filter(PhoneModel.name == identifier.upper()).first()
     config = build_model_config(model_obj, identifier)
     return _render("model.cfg.j2", {"config": config})
+
+def _detect_model_from_ua(user_agent: str) -> str | None:
+    """Определяем модель телефона по User-Agent"""
+    ua_upper = user_agent.upper()
+    
+    if "T46U" in ua_upper:
+        return "T46U"
+    elif "T48U" in ua_upper:
+        return "T48U"
+    elif "T54W" in ua_upper:
+        return "T54W"
+    elif "T58" in ua_upper:
+        return "T58"
+    # ... добавьте другие модели ...
+    
+    return None  # Не удалось определить
