@@ -7,7 +7,7 @@ Boolean: в шаблоне hidden value=0 + checkbox value=1 с тем же name
 FormData отдаёт оба, последнее побеждает — снятая галочка сохраняется как 0.
 PASSWORD_PARAMS: пустая строка не перезаписывает секрет в БД.
 """
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException
 from sqlalchemy.orm import Session
 import time
 from datetime import datetime, timedelta
@@ -388,4 +388,34 @@ async def auto_enroll_status():
     else:
         AUTO_ENROLL_UNTIL = None  # Сброс если время вышло
         return {"enabled": False}
+
+@router.post("/scan-network")
+async def scan_network(request: Request, db: Session = Depends(get_db)):
+    """Запускает сканирование сети для поиска и автодобавления телефонов Yealink."""
+    from app.services.network_scanner import scan_subnet
+    from app.services.audit import admin_user
     
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+        
+    subnet = body.get("subnet")
+    username = body.get("username", "admin")
+    password = body.get("password", "admin")
+    
+    if not subnet:
+        raise HTTPException(status_code=400, detail="Parameter 'subnet' is required (e.g., '10.30.17.0/24')")
+        
+    try:
+        result = await scan_subnet(subnet, username, password, db, admin_user(request))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+        
+    log_action(db, "NETWORK_SCAN", "Settings", 0, admin_user(request), f"Scanned {subnet}: found {result['found_yealink']} phones")
+    
+    return {
+        "status": "success", 
+        "message": f"Сканирование завершено. Найдено: {result['found_yealink']}, Добавлено: {result['newly_enrolled']}",
+        **result
+    }
