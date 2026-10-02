@@ -21,7 +21,7 @@ from app.phone_ip import pick_phone_ip, reported_phone_ip
 from app.services.config_builder import build_phone_config, build_model_config
 from app.services.audit import log_action
 
-router = APIRouter(prefix="/provision", tags=["provisioning"])/identifier
+router = APIRouter(prefix="/provision", tags=["provisioning"])
 logger = logging.getLogger("ncdc.provision")
 
 
