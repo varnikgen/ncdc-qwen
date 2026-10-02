@@ -55,6 +55,53 @@ async def scan_subnet(subnet: str, username: str, password: str, db: Session, ad
                             mac = "UNKNOWN"
                             
                             # 2. Пытаемся получить MAC разными способами
+
+                            mac_endpoints = [
+                                "/cgi-bin/ConfigManApp.com",
+                                "/status",
+                                "/cgi-bin/StatusApp.com",
+                                "/api/web/info",  # REST API некоторых моделей
+                            ]
+                            
+                            for endpoint in mac_endpoints:
+                                try:
+                                    auth_resp = await client.get(
+                                        f"{scheme}://{ip_str}:{port}{endpoint}",
+                                        auth=(username, password),
+                                        timeout=5.0
+                                    )
+                                    
+                                    if auth_resp.status_code == 200:
+                                        # Ищем MAC в ответе
+                                        text = auth_resp.text
+                                        
+                                        # MAC в формате XX:XX:XX:XX:XX:XX или XX-XX-XX-XX-XX-XX
+                                        match = re.search(r'([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})', text)
+                                        if match:
+                                            mac = normalize_mac(match.group(0))
+                                            logger.info(f"Found MAC {mac} via {endpoint}")
+                                            break
+                                            
+                                        # Пробуем парсить JSON если это API
+                                        try:
+                                            data = auth_resp.json()
+                                            # Ищем MAC в JSON структуре
+                                            for key, value in str(data).lower().split():
+                                                if re.match(r'^([0-9a-f]{2}[:-]){5}([0-9a-f]{2})$', key):
+                                                    mac = normalize_mac(key)
+                                                    break
+                                                if re.match(r'^([0-9a-f]{2}[:-]){5}([0-9a-f]{2})$', str(value)):
+                                                    mac = normalize_mac(str(value))
+                                                    break
+                                            if mac != "UNKNOWN":
+                                                logger.info(f"Found MAC {mac} in JSON via {endpoint}")
+                                                break
+                                        except:
+                                            pass
+                                            
+                                except Exception as e:
+                                    logger.debug(f"Failed to get MAC from {endpoint}: {e}")
+                                    continue
                             
                             # Способ A: HTTP Basic Auth (если есть www-authenticate)
                             if response.status_code == 401:
