@@ -405,17 +405,20 @@ async def scan_network(request: Request, db: Session = Depends(get_db)):
     password = body.get("password", "admin")
     
     if not subnet:
-        raise HTTPException(status_code=400, detail="Parameter 'subnet' is required (e.g., '10.30.17.0/24')")
+        raise HTTPException(status_code=400, detail="Parameter 'subnet' is required")
         
     try:
         result = await scan_subnet(subnet, username, password, db, admin_user(request))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
         
-    log_action(db, "NETWORK_SCAN", "Settings", 0, admin_user(request), f"Scanned {subnet}: found {result['found_yealink']} phones")
+    log_action(
+        db, "NETWORK_SCAN", "Settings", 0, admin_user(request),
+        f"Scanned {subnet}: found {result['found_yealink']} phones"
+    )
     
     return {
-        "status": "success", 
+        "status": "success",
         "message": f"Сканирование завершено. Найдено: {result['found_yealink']}, Добавлено: {result['newly_enrolled']}",
         **result
     }

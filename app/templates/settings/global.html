@@ -281,14 +281,25 @@ document.getElementById('scanForm').addEventListener('submit', async function(e)
         
         if (response.ok) {
             let detailsHtml = '';
+            
+            // Показываем найденные телефоны
             if (data.details && data.details.length > 0) {
-                detailsHtml = '<table class="table table-sm table-bordered mt-3"><thead><tr><th>MAC</th><th>IP</th><th>ID в БД</th></tr></thead><tbody>';
+                detailsHtml += '<h6>Добавленные телефоны:</h6>';
+                detailsHtml += '<table class="table table-sm table-bordered mt-2"><thead><tr><th>MAC</th><th>IP</th><th>Порт</th><th>ID</th></tr></thead><tbody>';
                 data.details.forEach(phone => {
-                    detailsHtml += `<tr><td><code>${phone.mac}</code></td><td>${phone.ip}</td><td>${phone.id}</td></tr>`;
+                    detailsHtml += `<tr><td><code>${phone.mac}</code></td><td>${phone.ip}</td><td>${phone.port}</td><td>${phone.id}</td></tr>`;
                 });
                 detailsHtml += '</tbody></table>';
+            }
+            
+            // Показываем отладочную информацию
+            if (data.debug && data.debug.length > 0) {
+                detailsHtml += '<h6 class="mt-3">Отладочная информация (первые 10 ответов):</h6>';
+                detailsHtml += '<div class="alert alert-secondary"><pre class="mb-0" style="font-size: 11px; max-height: 300px; overflow-y: auto;">';
+                detailsHtml += JSON.stringify(data.debug.slice(0, 10), null, 2);
+                detailsHtml += '</pre></div>';
             } else {
-                detailsHtml = '<p class="text-muted">Новые телефоны не найдены или уже существуют в базе.</p>';
+                detailsHtml += '<p class="text-muted mt-3">Новые телефоны не найдены или уже существуют в базе.</p>';
             }
 
             resultDiv.innerHTML = `
